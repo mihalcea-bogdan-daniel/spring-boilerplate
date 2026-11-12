@@ -14,13 +14,14 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * app.plans.pro.features: [sso, api-keys]
  * </pre>
  *
- * @param plans plan name -> limits. A tenant on an unknown plan is treated as unlimited.
+ * @param plans plan name -> limits. A tenant on an unknown plan gets nothing (see PlanService).
  */
 @ConfigurationProperties(prefix = "app")
 public record PlanProperties(@DefaultValue Map<String, Plan> plans) {
 
     /** @param maxUsers maximum number of users, or -1 for unlimited */
     public record Plan(@DefaultValue("-1") int maxUsers, @DefaultValue Set<String> features) {
-        public static final Plan UNLIMITED = new Plan(-1, Set.of());
+        /** Used for plan names that are not configured. */
+        public static final Plan NONE = new Plan(0, Set.of());
     }
 }

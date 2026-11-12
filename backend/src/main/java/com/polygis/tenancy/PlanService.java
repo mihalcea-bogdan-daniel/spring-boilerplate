@@ -27,8 +27,13 @@ public class PlanService {
                 TenantContext.require().id());
     }
 
+    /** A plan name missing from configuration grants nothing: no new users, no features (fail closed). */
     public PlanProperties.Plan currentPlan() {
-        return props.plans().getOrDefault(currentPlanName(), PlanProperties.Plan.UNLIMITED);
+        return props.plans().getOrDefault(currentPlanName(), PlanProperties.Plan.NONE);
+    }
+
+    public java.util.Set<String> planNames() {
+        return new java.util.TreeSet<>(props.plans().keySet());
     }
 
     /** @throws ApiException 402 {@code quota_exceeded} when the plan's user limit is reached */

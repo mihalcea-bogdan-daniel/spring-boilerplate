@@ -36,13 +36,16 @@ public class UserAdminService {
     private final AuditService audit;
     private final BreachedPasswordChecker breached;
     private final PlanService plans;
+    private final com.polygis.apikey.ApiKeyService apiKeys;
     private final AppProperties props;
 
     public UserAdminService(UserRepository users, RoleRepository roles, PermissionRepository permissions,
                             PasswordEncoder passwordEncoder, TokenService tokens, MailService mail,
                             AppProperties props, UserIdentityRepository identities,
-                            AuditService audit, BreachedPasswordChecker breached, PlanService plans) {
+                            AuditService audit, BreachedPasswordChecker breached, PlanService plans,
+                            @org.springframework.context.annotation.Lazy com.polygis.apikey.ApiKeyService apiKeys) {
         this.plans = plans;
+        this.apiKeys = apiKeys;
         this.users = users;
         this.roles = roles;
         this.permissions = permissions;
@@ -129,10 +132,16 @@ public class UserAdminService {
             u.getRoles().stream().filter(r -> Role.SUPER_ADMIN.equals(r.getName())).forEach(next::add);
             boolean changed = !next.equals(u.getRoles());
             u.setRoles(next);
-            if (changed) tokens.invalidateAccessTokens(u.getId()); // new permissions apply on the next request
+            if (changed) {
+                tokens.invalidateAccessTokens(u.getId()); // new permissions apply on the next request
+                apiKeys.revokeForOwner(u.getId(), u.permissionCodes(), "owner lost permissions");
+            }
         }
         assertAdminRemains(adminsBefore);
-        if (req.status() == UserStatus.DISABLED) tokens.revokeAll(u.getId());
+        if (req.status() == UserStatus.DISABLED) {
+            tokens.revokeAll(u.getId());
+            apiKeys.revokeForOwner(u.getId(), null, "owner disabled");
+        }
         audit.record("user.updated", "user", u.getId(), "status=" + u.getStatus() + " roles=" + u.roleNames());
         return UserDto.from(u);
     }
@@ -151,6 +160,7 @@ public class UserAdminService {
         long adminsBefore = activeAdmins();
         audit.record("user.deleted", "user", u.getId(), u.getEmail());
         tokens.revokeAll(u.getId());
+        apiKeys.revokeForOwner(u.getId(), null, "owner deleted");
         identities.deleteByUser(u);
         u.setStatus(UserStatus.DISABLED);
         u.setPasswordHash(null);

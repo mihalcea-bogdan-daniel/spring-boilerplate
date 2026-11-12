@@ -11,4 +11,6 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, UUID> {
     Optional<ApiKey> findByKeyHashAndRevokedAtIsNull(String keyHash);
 
     List<ApiKey> findByRevokedAtIsNullOrderByCreatedAtDesc();
+
+    List<ApiKey> findByCreatedByAndRevokedAtIsNull(String createdBy);
 }

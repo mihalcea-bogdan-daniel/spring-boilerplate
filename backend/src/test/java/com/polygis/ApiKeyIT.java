@@ -66,4 +66,46 @@ class ApiKeyIT extends IntegrationTestBase {
         mvc.perform(get("/api/admin/users").with(host(host)).header("X-API-Key", key))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void keysDieWithTheirOwnerAndPauseOnPlanDowngrade() throws Exception {
+        String admin = provisionTenant("key-life");
+        String host = hostOf("key-life");
+        jdbc.update("update public.tenants set plan = 'pro' where slug = 'key-life'");
+        String adminToken = accessToken(otpLogin(host, admin));
+        String ownerId = body(mvc.perform(jsonPost("/api/admin/users", Map.of("email", "o@key-life.test",
+                        "password", "Owners-Passw0rd", "roles", List.of("TENANT_ADMIN")))
+                .with(host(host)).header("Authorization", bearer(adminToken))).andReturn()).get("id").asText();
+        String ownerToken = accessToken(login(host, "o@key-life.test", "Owners-Passw0rd"));
+        String key = body(mvc.perform(jsonPost("/api/admin/api-keys", Map.of("name", "k", "permissions", List.of("user:read")))
+                .with(host(host)).header("Authorization", bearer(ownerToken))).andReturn()).get("key").asText();
+        mvc.perform(get("/api/admin/users").with(host(host)).header("X-API-Key", key)).andExpect(status().isOk());
+
+        // plan downgrade pauses the key, upgrade resumes it
+        jdbc.update("update public.tenants set plan = 'free' where slug = 'key-life'");
+        mvc.perform(get("/api/admin/users").with(host(host)).header("X-API-Key", key)).andExpect(status().isUnauthorized());
+        jdbc.update("update public.tenants set plan = 'pro' where slug = 'key-life'");
+        mvc.perform(get("/api/admin/users").with(host(host)).header("X-API-Key", key)).andExpect(status().isOk());
+
+        // deleting the owner revokes the key for good
+        mvc.perform(delete("/api/admin/users/" + ownerId).with(host(host)).header("Authorization", bearer(adminToken)))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/admin/users").with(host(host)).header("X-API-Key", key)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void unknownPlansGrantNothingAndCannotBeAssigned() throws Exception {
+        String admin = provisionTenant("key-plan");
+        String host = hostOf("key-plan");
+        String id = jdbc.queryForObject("select id::text from public.tenants where slug = 'key-plan'", String.class);
+        mvc.perform(put("/api/platform/tenants/" + id).with(host(PLATFORM_HOST)).header("Authorization", bearer(superAdminToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("name", "x", "status", "ACTIVE", "plan", "platinum"))))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("unknown_plan"));
+
+        jdbc.update("update public.tenants set plan = 'retired-plan' where slug = 'key-plan'");
+        String token = accessToken(otpLogin(host, admin));
+        mvc.perform(jsonPost("/api/admin/users", Map.of("email", "n@key-plan.test")).with(host(host))
+                .header("Authorization", bearer(token))).andExpect(status().isPaymentRequired());
+    }
 }

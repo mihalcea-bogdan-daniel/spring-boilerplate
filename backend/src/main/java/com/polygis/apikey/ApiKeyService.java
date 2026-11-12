@@ -44,6 +44,9 @@ public class ApiKeyService {
     @Transactional
     public Created create(String name, Set<String> permissions, Authentication creator) {
         plans.requireFeature(FEATURE);
+        if (!(creator instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken)) {
+            throw ApiException.forbidden("user_required", "API keys are created by signed-in users only");
+        }
         Set<String> own = new TreeSet<>();
         for (GrantedAuthority a : creator.getAuthorities()) own.add(a.getAuthority());
         if (permissions == null || permissions.isEmpty() || !own.containsAll(permissions)) {
@@ -64,6 +67,20 @@ public class ApiKeyService {
         return new Created(key, raw);
     }
 
+    /**
+     * Keys are owned by the user who created them (created_by = user id): when that user is deleted or disabled
+     * all their keys die; when their permissions shrink, keys holding more than they now have die.
+     */
+    @Transactional
+    public void revokeForOwner(UUID userId, Set<String> remainingPermissions, String reason) {
+        for (ApiKey key : keys.findByCreatedByAndRevokedAtIsNull(userId.toString())) {
+            if (remainingPermissions == null || !remainingPermissions.containsAll(key.permissionSet())) {
+                key.setRevokedAt(Instant.now());
+                audit.record("apikey.revoked", "api_key", key.getId(), key.getName() + " (" + reason + ")");
+            }
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<ApiKey> list() {
         return keys.findByRevokedAtIsNullOrderByCreatedAtDesc();
@@ -80,6 +97,8 @@ public class ApiKeyService {
     @Transactional
     public Optional<ApiKey> authenticate(String rawKey) {
         if (rawKey == null || !rawKey.startsWith(PREFIX) || rawKey.length() > 120) return Optional.empty();
+        // a plan downgrade switches existing keys off (they come back if the feature does)
+        if (!plans.hasFeature(FEATURE)) return Optional.empty();
         Optional<ApiKey> key = keys.findByKeyHashAndRevokedAtIsNull(Hashing.sha256(rawKey));
         key.ifPresent(k -> {
             // coarse "last used": at most one write per minute per key

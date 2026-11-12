@@ -50,7 +50,8 @@ async function provision() {
 
 // --------------------------------------------------- edit
 const editDialog = ref(false)
-const plans = ['free', 'pro', 'enterprise']
+const { data: planNames } = useApi<string[]>('/platform/tenants/plans', { server: false })
+const plans = computed(() => planNames.value ?? [])
 const editForm = reactive<{ id: string, name: string, domain: string, status: TenantStatus, plan: string }>({ id: '', name: '', domain: '', status: 'ACTIVE', plan: 'free' })
 function openEdit(t: TenantDto) {
   Object.assign(editForm, { id: t.id, name: t.name, domain: t.domain ?? '', status: t.status, plan: t.plan })
@@ -247,7 +248,7 @@ type="submit" label="Delete permanently" severity="danger" icon="pi pi-trash" :l
         <div class="field"><label for="e-name">Name</label><InputText id="e-name" v-model="editForm.name" required fluid /></div>
         <div class="field"><label for="e-domain">Custom domain</label><InputText id="e-domain" v-model="editForm.domain" fluid /></div>
         <div class="field"><label for="e-status">Status</label><Select id="e-status" v-model="editForm.status" :options="statuses" fluid /></div>
-        <div class="field"><label for="e-plan">Plan</label><Select id="e-plan" v-model="editForm.plan" :options="plans" editable fluid /></div>
+        <div class="field"><label for="e-plan">Plan</label><Select id="e-plan" v-model="editForm.plan" :options="plans" fluid /></div>
         <div class="row" style="justify-content: flex-end">
           <Button type="button" label="Cancel" severity="secondary" text @click="editDialog = false" />
           <Button type="submit" label="Save" icon="pi pi-check" />

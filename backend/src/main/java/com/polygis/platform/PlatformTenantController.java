@@ -48,6 +48,12 @@ public class PlatformTenantController {
         return service.update(id, req);
     }
 
+    /** Plan names configured under app.plans.* (for the tenant editor). */
+    @GetMapping("/plans")
+    public java.util.Set<String> plans() {
+        return service.planNames();
+    }
+
     @GetMapping("/{id}/stats")
     public TenantStatsDto stats(@PathVariable UUID id) {
         return service.stats(id);

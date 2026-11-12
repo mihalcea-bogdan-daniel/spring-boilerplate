@@ -150,7 +150,8 @@ app:
       # Set to ".example.com" when using one central OAuth2 callback host (see README)
       cookie-domain: ${OAUTH2_COOKIE_DOMAIN:}
 
-  # Plans referenced by public.tenants.plan. max-users: -1 = unlimited. Unknown plan names are unlimited.
+  # Plans referenced by public.tenants.plan. max-users: -1 = unlimited. A tenant on a plan that is not
+  # listed here gets nothing (no new users, no features), so removing a plan never silently unlocks it.
   plans:
     free:
       max-users: 5
@@ -159,7 +160,7 @@ app:
       features: [api-keys]
     enterprise:
       max-users: -1
-      features: [api-keys, sso]
+      features: [api-keys]
 
   rate-limit:
     auth:                          # POST /api/auth/** per tenant + client IP (in-memory, per node)

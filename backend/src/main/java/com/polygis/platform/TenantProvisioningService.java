@@ -43,13 +43,16 @@ public class TenantProvisioningService {
     private final AuditService audit;
     private final OtpService otp;
     private final JdbcTemplate jdbc;
+    private final com.polygis.tenancy.PlanService plans;
     private final UserRepository users;
 
     public TenantProvisioningService(TenantRepository tenants, TenantSchemaMigrator migrator,
                                      TenantRegistry registry, UserAdminService userAdmin, MailService mail,
                                      TransactionTemplate tx, AppProperties props, AuditService audit,
-                                     OtpService otp, UserRepository users, JdbcTemplate jdbc) {
+                                     OtpService otp, UserRepository users, JdbcTemplate jdbc,
+                                     com.polygis.tenancy.PlanService plans) {
         this.jdbc = jdbc;
+        this.plans = plans;
         this.tenants = tenants;
         this.migrator = migrator;
         this.registry = registry;
@@ -60,6 +63,10 @@ public class TenantProvisioningService {
         this.audit = audit;
         this.otp = otp;
         this.users = users;
+    }
+
+    public java.util.Set<String> planNames() {
+        return plans.planNames();
     }
 
     public PageResponse<TenantDto> search(String q, Pageable pageable) {
@@ -112,7 +119,12 @@ public class TenantProvisioningService {
             tenant.setName(req.name());
             tenant.setDomain(req.domain() == null || req.domain().isBlank() ? null : req.domain().toLowerCase());
             tenant.setStatus(req.status());
-            if (req.plan() != null) tenant.setPlan(req.plan());
+            if (req.plan() != null) {
+                if (!plans.planNames().contains(req.plan())) {
+                    throw ApiException.badRequest("unknown_plan", "Unknown plan '" + req.plan() + "'. Configured: " + plans.planNames());
+                }
+                tenant.setPlan(req.plan());
+            }
             audit.record("tenant.updated", "tenant", tenant.getSlug(), "status=" + req.status());
             return tenant;
         });
