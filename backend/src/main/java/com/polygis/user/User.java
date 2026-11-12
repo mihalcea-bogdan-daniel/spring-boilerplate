@@ -6,12 +6,16 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+/** Soft-deleted rows ({@code deleted_at} set) are invisible to every query through {@code @SQLRestriction}. */
 @Entity
 @Table(name = "users")
+@SQLRestriction("deleted_at is null")
 @Getter
 @Setter
 public class User {
@@ -54,6 +58,22 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Column(name = "totp_secret", length = 255)
+    @Convert(converter = com.polygis.common.EncryptedStringConverter.class)
+    private String totpSecret;
+
+    @Column(name = "totp_enabled", nullable = false)
+    private boolean totpEnabled;
+
+    @Column(name = "totp_last_step")
+    private Long totpLastStep;
+
+    @Column(name = "sessions_invalid_before", insertable = false, updatable = false)
+    private Instant sessionsInvalidBefore;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
@@ -63,6 +83,21 @@ public class User {
     @PreUpdate
     void touch() {
         updatedAt = Instant.now();
+    }
+
+    /**
+     * The owner of the inbox just proved control of it (e-mail code or a provider-verified social login).
+     * If nobody had verified this address before, whatever credentials exist were set by someone who never
+     * proved they own it - possibly an attacker who pre-registered the victim's e-mail - so they are discarded.
+     */
+    public void verifyEmailAsOwner() {
+        if (!emailVerified) {
+            passwordHash = null;
+            totpEnabled = false;
+            totpSecret = null;
+            totpLastStep = null;
+        }
+        emailVerified = true;
     }
 
     public boolean isLocked() {

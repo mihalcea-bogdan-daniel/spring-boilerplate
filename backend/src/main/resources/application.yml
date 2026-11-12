@@ -1,8 +1,8 @@
 spring:
   application:
     name: boilerplate-backend
-  profiles:
-    default: dev
+  # No default profile on purpose: a jar started without SPRING_PROFILES_ACTIVE runs with the safe base
+  # settings below (no secrets, no header fallback). `./gradlew bootRun` activates `dev` for you.
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/boilerplate}
@@ -21,6 +21,11 @@ spring:
       hibernate:
         jdbc.time_zone: UTC
         default_batch_fetch_size: 50
+
+  data:
+    web:
+      pageable:
+        max-page-size: 100        # Spring's default (2000) is a cheap way to load the database
 
   flyway:
     enabled: false                 # we drive Flyway ourselves: see TenantSchemaMigrator
@@ -57,10 +62,25 @@ spring:
 
 server:
   port: ${PORT:8080}
-  # Trust X-Forwarded-* from nginx/apache so request.getServerName() is the public tenant host
-  forward-headers-strategy: framework
+  # X-Forwarded-* (host, proto, client IP) are honoured ONLY from trusted proxies, so a client reaching the
+  # backend directly cannot pick a tenant host or fake its IP for rate limiting.
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      # Java regex of proxy addresses. Default: loopback + private networks (docker, k8s, VPC).
+      internal-proxies: ${TRUSTED_PROXIES:127\.\d{1,3}\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|0:0:0:0:0:0:0:1}
+      remote-ip-header: X-Forwarded-For
+      protocol-header: X-Forwarded-Proto
+      host-header: X-Forwarded-Host
+      port-header: X-Forwarded-Port
   error:
-    include-message: always
+    include-message: never        # never leak exception text; API errors are RFC 7807 bodies anyway
+    include-stacktrace: never
+
+# Every log line carries [requestId,tenant,user]; the id is also returned as X-Request-Id
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-},%X{tenant:-},%X{user:-}]"
 
 management:
   endpoints:
@@ -71,6 +91,22 @@ management:
     health:
       probes:
         enabled: true
+
+# Error reporting: does nothing until SENTRY_DSN is set.
+sentry:
+  dsn: ${SENTRY_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:production}
+  release: ${SENTRY_RELEASE:}
+  send-default-pii: false           # no IPs, cookies or e-mails; the user is identified by id only
+  traces-sample-rate: ${SENTRY_TRACES_SAMPLE_RATE:0.0}
+  # Events come from ERROR log lines (unhandled 500s, failed jobs, mail give-ups...). The MVC resolver runs
+  # after GlobalExceptionHandler, so expected 4xx (validation, auth, ApiException) are never reported.
+  exception-resolver-order: 1
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: info
+  # MDC values (set by TenantResolutionFilter/TenantAccessFilter) become searchable tags
+  context-tags: requestId,tenant,user
 
 springdoc:
   api-docs:
@@ -85,14 +121,25 @@ app:
     platform-tenant: platform
     platform-domain: ${APP_PLATFORM_DOMAIN:admin.example.com}
     tenant-header: X-Tenant-ID
+    # Propagate tenant changes to all nodes instantly via PostgreSQL LISTEN/NOTIFY
+    registry-notify: true
+    # Tenant schemas migrated concurrently at startup (keep below the DB pool size)
+    migration-parallelism: ${TENANT_MIGRATION_PARALLELISM:4}
     # Only for local development without wildcard DNS: lets anonymous callers pick a tenant via header
     dev-header-fallback: false
     reserved-slugs: [www, api, admin, app, mail, static, public, platform]
 
   security:
+    # AES-256 key for secrets stored in the database (TOTP seeds). openssl rand -base64 32
+    # Falls back to a key derived from JWT_SECRET when empty.
+    encryption-key: ${APP_ENCRYPTION_KEY:}
     jwt:
       issuer: ${JWT_ISSUER:boilerplate}
-      # >= 32 bytes. Generate with: openssl rand -base64 48
+      # HS256 (shared secret) or RS256 (key pair; public key served at /api/auth/jwks.json)
+      algorithm: ${JWT_ALGORITHM:HS256}
+      # RS256 only: RSA private key, PKCS#8 PEM. openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
+      private-key: ${JWT_PRIVATE_KEY:}
+      # >= 32 bytes. Signs HS256 tokens and (in both modes) the OAuth2 state cookie. openssl rand -base64 48
       secret: ${JWT_SECRET:}
       access-token-ttl: 15m
       refresh-token-ttl: 14d
@@ -103,6 +150,8 @@ app:
       same-site: Strict
     password:
       bcrypt-strength: 12
+      # Reject passwords found in known breaches (Have I Been Pwned k-anonymity API; only 5 hash chars are sent)
+      check-breached: ${PASSWORD_CHECK_BREACHED:true}
       max-failed-attempts: 5
       lockout-duration: 15m
     otp:
@@ -116,6 +165,24 @@ app:
       frontend-callback: https://{host}/auth/callback
       # Set to ".example.com" when using one central OAuth2 callback host (see README)
       cookie-domain: ${OAUTH2_COOKIE_DOMAIN:}
+
+  # Plans referenced by public.tenants.plan. max-users: -1 = unlimited. A tenant on a plan that is not
+  # listed here gets nothing (no new users, no features), so removing a plan never silently unlocks it.
+  plans:
+    free:
+      max-users: 5
+    pro:
+      max-users: 50
+      features: [api-keys]
+    enterprise:
+      max-users: -1
+      features: [api-keys]
+
+  rate-limit:
+    auth:                          # POST /api/auth/** per tenant + client IP (in-memory, per node)
+      enabled: true
+      capacity: 30
+      window: 1m
 
   bootstrap:
     super-admin-email: ${SUPER_ADMIN_EMAIL:}
@@ -134,8 +201,15 @@ spring:
   config:
     activate:
       on-profile: dev
+
+sentry:
+  environment: development
   thymeleaf:
     cache: false
+
+server:
+  error:
+    include-message: always
 
 app:
   tenancy:
@@ -147,6 +221,8 @@ app:
       secret: ${JWT_SECRET:dev-only-secret-change-me-dev-only-secret-change-me}
     refresh-cookie:
       secure: false
+    password:
+      check-breached: false          # keep local sign-ups offline-friendly
     oauth2:
       frontend-callback: http://{host}:3000/auth/callback
   bootstrap:

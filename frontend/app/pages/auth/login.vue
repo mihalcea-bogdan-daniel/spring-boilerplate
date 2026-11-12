@@ -3,7 +3,9 @@ definePageMeta({ layout: 'auth', public: true })
 
 const auth = useAuthStore()
 const route = useRoute()
-const providers = useRuntimeConfig().public.oauth2Providers as string[]
+const { branding } = useBranding()
+// tenants can switch social login and self-registration off in their settings
+const providers = computed(() => (branding.value.allowSocialLogin ? useRuntimeConfig().public.oauth2Providers as string[] : []))
 
 const form = reactive({ email: '', password: '' })
 const loading = ref(false)
@@ -14,8 +16,8 @@ async function submit() {
   loading.value = true
   error.value = null
   try {
-    await auth.login(form.email, form.password)
-    await navigateTo(redirect.value)
+    const signedIn = await auth.login(form.email, form.password)
+    await navigateTo(signedIn ? redirect.value : { path: '/auth/mfa', query: { redirect: redirect.value } })
   } catch (e) {
     const p = problemOf(e)
     if (p.code === 'email_not_verified') {
@@ -24,6 +26,22 @@ async function submit() {
     error.value = p.detail
   } finally {
     loading.value = false
+  }
+}
+
+// ---------------------------------------------------------------- passkey sign-in
+const passkeys = usePasskeys()
+const passkeyLoading = ref(false)
+async function passkeySignIn() {
+  passkeyLoading.value = true
+  error.value = null
+  try {
+    await passkeys.signIn()
+    await navigateTo(redirect.value)
+  } catch (e) {
+    error.value = passkeys.messageOf(e)
+  } finally {
+    passkeyLoading.value = false
   }
 }
 
@@ -49,21 +67,26 @@ const providerIcon = (p: string) => ({ google: 'pi pi-google', github: 'pi pi-gi
             <label for="password">Password</label>
             <NuxtLink to="/auth/forgot-password" class="muted">Forgot?</NuxtLink>
           </div>
-          <Password id="password" v-model="form.password" :feedback="false" toggle-mask
+          <Password
+id="password" v-model="form.password" :feedback="false" toggle-mask
                     autocomplete="current-password" required fluid />
         </div>
         <Button type="submit" label="Sign in" icon="pi pi-sign-in" :loading="loading" fluid />
+        <Button
+v-if="passkeys.supported.value" type="button" label="Sign in with a passkey" icon="pi pi-key"
+                severity="secondary" :loading="passkeyLoading" fluid @click="passkeySignIn" />
         <Button as="router-link" to="/auth/otp" label="E-mail me a sign-in code" severity="secondary" outlined fluid />
 
-        <Divider align="center"><span class="muted">or continue with</span></Divider>
+        <Divider v-if="providers.length" align="center"><span class="muted">or continue with</span></Divider>
         <div class="grid-2">
-          <Button v-for="p in providers" :key="p" :icon="providerIcon(p)" :label="p" severity="contrast" outlined
+          <Button
+v-for="p in providers" :key="p" :icon="providerIcon(p)" :label="p" severity="contrast" outlined
                   style="text-transform: capitalize" @click="auth.startSocialLogin(p, redirect)" />
         </div>
       </form>
     </template>
     <template #footer>
-      <p class="muted">No account? <NuxtLink to="/auth/register">Create one</NuxtLink></p>
+      <p v-if="branding.allowSelfRegistration" class="muted">No account? <NuxtLink to="/auth/register">Create one</NuxtLink></p>
     </template>
   </Card>
 </template>

@@ -5,9 +5,8 @@ import type { PageResponse, RoleDto, UserDto, UserStatus } from '~/types/api'
 definePageMeta({ permission: 'user:read' })
 
 const auth = useAuthStore()
-const toast = useToast()
 const confirm = useConfirm()
-const { $api } = useNuxtApp()
+const { request, pending: saving, fieldErrors: errors } = useRequest()
 
 // ---------------------------------------------------------------- lazy table state -> query string
 const page = ref(0)
@@ -16,7 +15,7 @@ const sort = ref('createdAt,desc')
 const search = ref('')
 const q = refDebounced(search, 300)
 
-const { data, pending, refresh } = useApi<PageResponse<UserDto>>('/admin/users', {
+const { data, pending, error, refresh } = useApi<PageResponse<UserDto>>('/admin/users', {
   query: { page, size, sort, q },
   server: false,
 })
@@ -36,9 +35,7 @@ const statuses: UserStatus[] = ['ACTIVE', 'PENDING', 'DISABLED']
 // ---------------------------------------------------------------- create / edit dialog
 interface UserForm { id?: string, email: string, firstName: string, lastName: string, password: string, status: UserStatus, roles: string[] }
 const dialog = ref(false)
-const saving = ref(false)
 const form = reactive<UserForm>({ email: '', firstName: '', lastName: '', password: '', status: 'ACTIVE', roles: ['USER'] })
-const errors = ref<Record<string, string>>({})
 
 function openCreate() {
   Object.assign(form, { id: undefined, email: '', firstName: '', lastName: '', password: '', status: 'ACTIVE', roles: ['USER'] })
@@ -52,24 +49,35 @@ function openEdit(u: UserDto) {
 }
 
 async function save() {
-  saving.value = true
-  errors.value = {}
-  try {
-    if (form.id) {
-      await $api(`/admin/users/${form.id}`, { method: 'PUT', body: { firstName: form.firstName, lastName: form.lastName, status: form.status, roles: form.roles } })
-    } else {
-      await $api('/admin/users', { method: 'POST', body: { email: form.email, firstName: form.firstName, lastName: form.lastName, password: form.password || null, roles: form.roles } })
-    }
-    toast.add({ severity: 'success', summary: 'User saved', life: 3000 })
-    dialog.value = false
-    await refresh()
-  } catch (e) {
-    const p = problemOf(e)
-    errors.value = p.errors ?? {}
-    toast.add({ severity: 'error', summary: p.detail, life: 5000 })
-  } finally {
-    saving.value = false
-  }
+  const res = form.id
+    ? await request(`/admin/users/${form.id}`, {
+        method: 'PUT',
+        body: { firstName: form.firstName, lastName: form.lastName, status: form.status, roles: form.roles },
+        success: 'User saved',
+        error: 'Could not save the user',
+      })
+    : await request('/admin/users', {
+        method: 'POST',
+        body: { email: form.email, firstName: form.firstName, lastName: form.lastName, password: form.password || null, roles: form.roles },
+        success: 'User created',
+        error: 'Could not create the user',
+      })
+  if (!res.ok) return
+  dialog.value = false
+  await refresh()
+}
+
+async function resendInvite(u: UserDto) {
+  await request(`/admin/users/${u.id}/invite`, { method: 'POST', success: `Invitation sent to ${u.email}` })
+}
+
+// ---------------------------------------------------------------- super-admin: sign in as user
+const tenantStore = useTenantStore()
+const canImpersonate = computed(() => auth.isSuperAdmin && !!tenantStore.managedTenant)
+async function impersonate(u: UserDto) {
+  const res = await request<{ url: string }>(
+    `/platform/tenants/${tenantStore.managedTenant}/impersonate/${u.id}`, { method: 'POST', success: false })
+  if (res.ok) window.open(res.data.url, '_blank', 'noopener')
 }
 
 function remove(u: UserDto) {
@@ -80,13 +88,8 @@ function remove(u: UserDto) {
     acceptProps: { label: 'Delete', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
     accept: async () => {
-      try {
-        await $api(`/admin/users/${u.id}`, { method: 'DELETE' })
-        toast.add({ severity: 'success', summary: 'User deleted', life: 3000 })
-        await refresh()
-      } catch (e) {
-        toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-      }
+      const res = await request(`/admin/users/${u.id}`, { method: 'DELETE', success: 'User deleted' })
+      if (res.ok) await refresh()
     },
   })
 }
@@ -105,7 +108,9 @@ function remove(u: UserDto) {
       </div>
     </div>
 
+    <LoadError :error="error" what="users" @retry="refresh()" />
     <DataTable
+      v-if="!error"
       :value="data?.content ?? []"
       :loading="pending"
       lazy
@@ -135,8 +140,14 @@ function remove(u: UserDto) {
       <Column field="lastLoginAt" header="Last login" sortable>
         <template #body="{ data: u }">{{ u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '—' }}</template>
       </Column>
-      <Column v-if="auth.can('user:write')" header="" style="width: 7rem; text-align: right">
+      <Column v-if="auth.can('user:write')" header="" style="width: 13rem; text-align: right">
         <template #body="{ data: u }">
+          <Button
+v-if="canImpersonate && u.status === 'ACTIVE'" v-tooltip.top="'Sign in as this user'" icon="pi pi-user-edit"
+                  text rounded aria-label="Sign in as this user" @click="impersonate(u)" />
+          <Button
+v-if="u.status === 'PENDING'" v-tooltip.top="'Resend invitation'" icon="pi pi-send" text rounded
+                  aria-label="Resend invitation" @click="resendInvite(u)" />
           <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEdit(u)" />
           <Button icon="pi pi-trash" text rounded severity="danger" aria-label="Delete" @click="remove(u)" />
         </template>
@@ -161,7 +172,7 @@ function remove(u: UserDto) {
           </div>
         </div>
         <div v-if="!form.id" class="field">
-          <label for="u-pw">Initial password <span class="muted">(optional — otherwise e-mail code / social)</span></label>
+          <label for="u-pw">Initial password <span class="muted">(optional — leave empty to e-mail an invitation)</span></label>
           <Password id="u-pw" v-model="form.password" toggle-mask :invalid="!!errors.password" fluid />
           <small v-if="errors.password" class="error">{{ errors.password }}</small>
         </div>

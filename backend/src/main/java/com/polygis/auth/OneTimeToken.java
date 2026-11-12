@@ -17,7 +17,8 @@ public class OneTimeToken {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "user_id", nullable = false)
+    /** Null for passkey sign-in challenges, which are issued before anyone is identified. */
+    @Column(name = "user_id")
     private UUID userId;
 
     @Enumerated(EnumType.STRING)
@@ -29,6 +30,9 @@ public class OneTimeToken {
 
     @Column(nullable = false)
     private int attempts;
+
+    @Column(length = 320)
+    private String data;
 
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;

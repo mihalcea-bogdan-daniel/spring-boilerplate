@@ -9,7 +9,9 @@ type ApiOptions = NonNullable<Parameters<typeof $fetch>[1]>
  *  - SSR: talks to the backend directly and forwards the public host so Spring can resolve the tenant
  *  - 401 => one shared refresh-token rotation, then the original request is replayed once
  */
-export default defineNuxtPlugin((nuxtApp) => {
+export default defineNuxtPlugin({
+  name: 'api',
+  setup(nuxtApp) {
   const config = useRuntimeConfig()
   const router = useRouter()
   const auth = useAuthStore()
@@ -33,7 +35,10 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (auth.accessToken && !isAnonymousAuthCall(path) && !headers.has('Authorization')) {
         headers.set('Authorization', `Bearer ${auth.accessToken}`)
       }
-      if (tenant.headerValue && !path.startsWith('/auth/')) {
+      // /auth/*, /me and the platform console always act on the user's own (home) tenant
+      const isOwnAccountCall = path.startsWith('/auth/') || path === '/me' || path.startsWith('/me/')
+        || path.startsWith('/platform/')
+      if (tenant.headerValue && !isOwnAccountCall) {
         headers.set(config.public.tenantHeader, tenant.headerValue)
       }
       if (import.meta.server) {
@@ -60,4 +65,5 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   return { provide: { api } }
+  },
 })

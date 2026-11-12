@@ -3,6 +3,7 @@ package com.polygis.tenancy;
 import java.io.IOException;
 import java.util.Optional;
 
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -46,25 +47,30 @@ public class TenantAccessFilter extends OncePerRequestFilter {
 
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
             String tokenTenant = jwtAuth.getToken().getClaimAsString(JwtClaims.TENANT);
+            MDC.put(TenantResolutionFilter.MDC_USER, jwtAuth.getToken().getSubject());
 
             if (isSuperAdmin(jwtAuth, tokenTenant)) {
                 if (requested != null) {
                     Optional<TenantInfo> target = registry.findBySlug(requested);
                     if (target.isEmpty()) {
-                        TenantResolutionFilter.reject(response, HttpStatus.NOT_FOUND, "Unknown tenant " + requested);
+                        TenantResolutionFilter.reject(response, HttpStatus.NOT_FOUND, "tenant_not_found",
+                                "Unknown tenant " + requested);
                         return;
                     }
                     // super-admins may also manage SUSPENDED tenants
                     TenantContext.set(target.get());
+                    MDC.put(TenantResolutionFilter.MDC_TENANT, target.get().slug() + "<-" + tokenTenant);
                 }
             } else {
                 String current = hostTenant.map(TenantInfo::slug).orElse(null);
                 if (current == null || !current.equals(tokenTenant)) {
-                    TenantResolutionFilter.reject(response, HttpStatus.FORBIDDEN, "Token not valid for this tenant");
+                    TenantResolutionFilter.reject(response, HttpStatus.FORBIDDEN, "tenant_mismatch",
+                            "Token not valid for this tenant");
                     return;
                 }
                 if (requested != null && !requested.equals(current)) {
-                    TenantResolutionFilter.reject(response, HttpStatus.FORBIDDEN, "Tenant switching not allowed");
+                    TenantResolutionFilter.reject(response, HttpStatus.FORBIDDEN, "tenant_switch_forbidden",
+                            "Tenant switching not allowed");
                     return;
                 }
             }

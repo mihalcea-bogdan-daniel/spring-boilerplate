@@ -5,7 +5,7 @@ import type { PageResponse, TenantDto } from '~/types/api'
 const auth = useAuthStore()
 const tenant = useTenantStore()
 const { $api } = useNuxtApp()
-const appName = useRuntimeConfig().public.appName
+const { name: appName, branding } = useBranding()
 const sidebarOpen = ref(false)
 const route = useRoute()
 watch(() => route.fullPath, () => { sidebarOpen.value = false })
@@ -18,6 +18,8 @@ const menu = computed<MenuItem[]>(() => {
     { label: 'Users', icon: 'pi pi-users', route: '/admin/users', visible: auth.can('user:read') },
     { label: 'Roles', icon: 'pi pi-shield', route: '/admin/roles', visible: auth.can('role:read') },
     { label: 'Settings', icon: 'pi pi-cog', route: '/admin/settings', visible: auth.can('settings:read') },
+    { label: 'API keys', icon: 'pi pi-key', route: '/admin/api-keys', visible: auth.can('apikey:manage') },
+    { label: 'Audit log', icon: 'pi pi-history', route: '/admin/audit', visible: auth.can('audit:read') },
   ]
   if (admin.some(i => i.visible)) items.push({ label: 'Administration', items: admin })
   if (auth.isSuperAdmin) {
@@ -44,23 +46,24 @@ function onTenantChange(slug: string | null) {
 
 // ------- user menu
 const userMenu = ref()
-const userItems: MenuItem[] = [
+const { $pwa } = useNuxtApp()
+const userItems = computed<MenuItem[]>(() => [
+  { label: 'Profile', icon: 'pi pi-user', command: () => navigateTo('/profile') },
+  // shown only when the browser offers installation and the app isn't installed yet
+  { label: 'Install app', icon: 'pi pi-download', visible: !!$pwa?.showInstallPrompt, command: () => $pwa?.install() },
   { label: 'Sign out', icon: 'pi pi-sign-out', command: () => auth.logout() },
-]
+])
 
-// ------- dark mode
-const dark = ref(false)
-function toggleDark() {
-  dark.value = !dark.value
-  document.documentElement.classList.toggle('app-dark', dark.value)
-}
+// ------- dark mode (persisted in a cookie, applied in app.vue)
+const { isDark: dark, toggle: toggleDark } = useTheme()
 </script>
 
 <template>
   <div class="shell">
     <aside class="shell-sidebar" :class="{ open: sidebarOpen }">
       <div class="shell-brand">
-        <i class="pi pi-box" style="color: var(--p-primary-color)" /> {{ appName }}
+        <img v-if="branding.logoUrl" :src="branding.logoUrl" alt="" style="height: 1.5rem">
+        <AppLogo v-else size="1.75rem" /> {{ appName }}
       </div>
       <Menu :model="menu">
         <template #item="{ item, props }">
@@ -104,6 +107,12 @@ function toggleDark() {
           <Menu ref="userMenu" :model="userItems" popup />
         </div>
       </header>
+      <Message v-if="auth.user?.impersonatedBy" severity="warn" :closable="false" style="margin: 1rem 1.5rem 0">
+        <div class="row-between">
+          <span>You are signed in as <strong>{{ auth.user.email }}</strong> on behalf of {{ auth.user.impersonatedBy }}. Everything you do is audited.</span>
+          <Button label="End session" size="small" severity="warn" @click="auth.logout()" />
+        </div>
+      </Message>
       <main class="shell-content">
         <slot />
       </main>

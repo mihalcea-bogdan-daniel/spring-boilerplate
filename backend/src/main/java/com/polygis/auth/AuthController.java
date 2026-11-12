@@ -51,9 +51,8 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public TokenResponse login(@Valid @RequestBody LoginRequest req, HttpServletRequest http,
-                               HttpServletResponse res) {
-        return respond(auth.login(req, client(http)), res);
+    public Object login(@Valid @RequestBody LoginRequest req, HttpServletRequest http, HttpServletResponse res) {
+        return respondOrChallenge(auth.login(req, client(http)), res);
     }
 
     @PostMapping("/otp/request")
@@ -64,9 +63,16 @@ public class AuthController {
     }
 
     @PostMapping("/otp/verify")
-    public TokenResponse verifyOtp(@Valid @RequestBody VerifyOtpRequest req, HttpServletRequest http,
+    public Object verifyOtp(@Valid @RequestBody VerifyOtpRequest req, HttpServletRequest http,
+                            HttpServletResponse res) {
+        return respondOrChallenge(auth.verifyLoginOtp(req, client(http)), res);
+    }
+
+    /** Second step for accounts with TOTP: trade the challenge + authenticator (or recovery) code for tokens. */
+    @PostMapping("/mfa/verify")
+    public TokenResponse verifyMfa(@Valid @RequestBody MfaVerifyRequest req, HttpServletRequest http,
                                    HttpServletResponse res) {
-        return respond(auth.verifyLoginOtp(req, client(http)), res);
+        return respond(auth.verifyMfa(req, client(http)), res);
     }
 
     @PostMapping("/password/forgot")
@@ -84,9 +90,14 @@ public class AuthController {
 
     /** Second leg of social login: trade the one-time code from the redirect for real tokens. */
     @PostMapping("/oauth2/exchange")
-    public TokenResponse exchange(@Valid @RequestBody ExchangeRequest req, HttpServletRequest http,
-                                  HttpServletResponse res) {
-        return respond(auth.exchangeOAuth2Code(req.code(), client(http)), res);
+    public Object exchange(@Valid @RequestBody ExchangeRequest req, HttpServletRequest http, HttpServletResponse res) {
+        return respondOrChallenge(auth.exchangeOAuth2Code(req.code(), client(http)), res);
+    }
+
+    /** Landing step of "sign in as user": no refresh cookie is set, the session ends with the access token. */
+    @PostMapping("/impersonation/exchange")
+    public TokenResponse exchangeImpersonation(@Valid @RequestBody ExchangeRequest req) {
+        return auth.exchangeImpersonationCode(req.code());
     }
 
     @PostMapping("/refresh")
@@ -108,7 +119,13 @@ public class AuthController {
 
     @GetMapping("/me")
     public MeResponse me(@AuthenticationPrincipal Jwt jwt) {
-        return auth.me(java.util.UUID.fromString(jwt.getSubject()), jwt.getClaimAsString(JwtClaims.TENANT));
+        return auth.me(java.util.UUID.fromString(jwt.getSubject()), jwt.getClaimAsString(JwtClaims.TENANT),
+                jwt.getClaimAsString(JwtClaims.ACTOR));
+    }
+
+    private Object respondOrChallenge(AuthService.AuthResult result, HttpServletResponse res) {
+        if (result.mfaToken() != null) return new MfaChallengeResponse(true, result.mfaToken());
+        return respond(result, res);
     }
 
     private TokenResponse respond(AuthService.AuthResult result, HttpServletResponse res) {

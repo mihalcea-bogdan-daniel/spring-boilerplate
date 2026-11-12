@@ -27,6 +27,7 @@ public record AppProperties(
     public record Security(Jwt jwt, RefreshCookie refreshCookie, Password password, Otp otp, OAuth2 oauth2) {
 
         public record Jwt(String issuer, String secret,
+                          @DefaultValue("HS256") String algorithm, String privateKey,
                           @DefaultValue("15m") Duration accessTokenTtl,
                           @DefaultValue("14d") Duration refreshTokenTtl) {
         }

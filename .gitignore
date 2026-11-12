@@ -7,6 +7,10 @@
 # backend
 backend/build/
 backend/.gradle/
+# Java language server output (Gradle itself writes to backend/build)
+backend/target/
+backend/bin/
+*.class
 
 # frontend
 frontend/node_modules/

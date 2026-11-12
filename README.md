@@ -2,6 +2,10 @@
 
 Spring Boot 3.5 (Java 17+) · PostgreSQL (schema-per-tenant) · Nuxt 4 · PrimeVue 4 (Aura) · Pinia
 
+**Guides:** setup site in [`docs/index.html`](docs/index.html) (publish with GitHub Pages → *Deploy from branch* →
+`main` / `/docs`) · frontend rules for contributors and coding agents in
+[`frontend/AGENTS.md`](frontend/AGENTS.md) and [`frontend/docs/`](frontend/docs/README.md)
+
 ```
 spring-boilerplate/
 ├── backend/                                   Spring Boot API + Thymeleaf
@@ -45,6 +49,19 @@ spring-boilerplate/
 ├── infra/nginx/default.conf   infra/apache/tenant-vhost.conf
 ├── docker-compose.yml   .env.example
 ```
+
+## What's included beyond the core
+
+| Area | Feature |
+|---|---|
+| Account | Profile, set/change password, active sessions with revoke, TOTP two-factor with recovery codes, passkeys |
+| Admin | User invitations, soft delete, audit log, API keys (`X-API-Key`), per-tenant branding |
+| Platform | Plans and user quotas (`app.plans.*`), tenant status (schema version, size, usage), offboarding, "sign in as user" |
+| Security | Auth rate limiting, breached-password check, security headers, optional RS256 + JWKS |
+| Operations | Sentry error reporting (backend + Nuxt, opt-in via DSN), LISTEN/NOTIFY registry sync, parallel tenant migrations, per-tenant background jobs, request/tenant/user ids in logs |
+| Quality | Integration tests on embedded PostgreSQL, ArchUnit rules, ESLint, Vitest, generated API types, GitHub Actions CI |
+
+Quality gates: `cd backend && ./gradlew build` and `cd frontend && npm run lint && npm run typecheck && npm test`.
 
 ## How a request finds its tenant
 
@@ -96,6 +113,15 @@ from the token's own tenant, so switching never breaks the session.
 * **OAuth2 state** lives in an HMAC-signed cookie (no HTTP session) that also carries the tenant, so the callback
   works even on a central callback host. Tokens never appear in URLs: the SPA receives a 60-second one-time code.
 
+### Passkeys
+
+Users add passkeys from their profile and then use **Sign in with a passkey** on the login page (discoverable
+credentials: no e-mail needed). The relying party is the workspace host, so a passkey created on
+`acme.example.com` only works there. User verification (biometrics or device PIN) is required, so a passkey
+sign-in skips the TOTP step. Ceremonies are stateless: challenges are one-time tokens in the tenant schema.
+Verification uses [webauthn4j](https://github.com/webauthn4j/webauthn4j) (0.30.x: the 0.31 line needs Jackson 3,
+which Spring Boot 3.5 does not ship).
+
 ### OAuth2 redirect URIs
 
 *Per-tenant (default)*: register `https://<slug>.example.com/api/login/oauth2/code/google` for each tenant —
@@ -106,8 +132,8 @@ fine for a few tenants, but Google/GitHub do not accept wildcards.
 `https://auth.example.com/api/login/oauth2/code/{provider}`. The tenant comes back inside the signed cookie and
 the user is redirected to `https://<their tenant host>/auth/callback`.
 
-GitHub only returns a public e-mail in `/user`; for users with a private e-mail add a custom
-`OAuth2UserService` that calls `GET /user/emails` (scope `user:email` is already requested).
+GitHub only returns a public e-mail in `/user`, so `GitHubEmailOAuth2UserService` asks `/user/emails` for the
+primary verified address (scope `user:email`). Unverified addresses are never accepted.
 
 ## RBAC
 
@@ -145,6 +171,13 @@ cd backend && ./gradlew bootRun
 cd frontend && npm install && npm run dev
 ```
 
+Want data to click through? Start the backend with demo tenants `acme` and `globex` (six users each,
+`admin@acme.test` / `Demo-Passw0rd!`):
+
+```bash
+cd backend && ./gradlew bootRun --args='--app.seed=true'
+```
+
 * Super-admin: http://admin.localhost:3000 — `superadmin@admin.localhost` / `ChangeMe!123` (dev profile defaults)
 * Provision a tenant `acme` from *Platform → Tenants*, then open http://acme.localhost:3000
 * Read e-mails (OTP codes, invites) at http://localhost:8025
@@ -162,12 +195,36 @@ cp .env.example .env && docker compose up --build
 
 then open http://admin.localhost and http://acme.localhost.
 
+## Keeping frontend types in sync with the API
+
+Every backend test run writes the live OpenAPI document to `backend/build/openapi.json`. Regenerate the
+TypeScript definitions from it after changing a controller or DTO:
+
+```bash
+cd backend && ./gradlew test
+```
+
+```bash
+cd frontend && npm run gen:api
+```
+
+`app/types/api.generated.ts` (generated, committed) contains every path and schema. The hand-written
+`app/types/api.ts` is still what the pages import; move a type over by re-exporting it, e.g.
+`export type UserDto = Required<components['schemas']['UserDto']>`.
+
+## Error reporting (Sentry)
+
+Set `SENTRY_DSN` (backend) and `NUXT_PUBLIC_SENTRY_DSN` (browser + SSR) to turn it on; without them the SDKs
+stay idle. The backend reports ERROR log events (unhandled 500s, failed jobs, mail give-ups), never expected
+4xx, tagged with `requestId`, `tenant` and the user id. The frontend tags the tenant and user id and collects no
+cookies, headers, bodies or query strings (`app/utils/sentry-privacy.ts`). Source maps are uploaded during
+`npm run build` only when `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` are set.
+
 ## Production checklist
 
-- [ ] `JWT_SECRET` ≥ 32 random bytes from a secret store (or switch `SecurityConfig` to RS256 + JWKS if other services verify tokens)
+- [ ] `JWT_SECRET` ≥ 32 random bytes from a secret store. If other services verify tokens, set `JWT_ALGORITHM=RS256` and `JWT_PRIVATE_KEY` (PKCS#8 PEM); the public key is served at `/api/auth/jwks.json`
 - [ ] Backend reachable **only** from nginx and the Nuxt server — it trusts `X-Forwarded-Host` for tenant resolution
 - [ ] Wildcard TLS certificate (DNS-01) for `*.example.com`; custom domains need their own certs
 - [ ] Rate-limit `/api/auth/**` at nginx (`limit_req`) in addition to the built-in OTP/lockout limits
-- [ ] Multi-node: `TenantRegistry` refreshes every 60 s — publish a reload event (Redis/Postgres `NOTIFY`) for instant propagation
 - [ ] Back up `public` and all `t_*` schemas; `pg_dump -n 't_*'`
 - [ ] Bump the toolchain in `build.gradle` to 21 and set `spring.threads.virtual.enabled=true`

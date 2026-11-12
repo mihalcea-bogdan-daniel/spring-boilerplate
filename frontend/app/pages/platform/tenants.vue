@@ -1,18 +1,21 @@
 <script setup lang="ts">
 import type { DataTablePageEvent } from 'primevue/datatable'
-import type { PageResponse, TenantDto, TenantStatus } from '~/types/api'
+import type { PageResponse, TenantDto, TenantStatsDto, TenantStatus } from '~/types/api'
 
 definePageMeta({ superAdminOnly: true })
 
-const toast = useToast()
 const tenantStore = useTenantStore()
-const { $api } = useNuxtApp()
+const { request } = useRequest()
+// separate instances so each dialog has its own spinner and field errors
+const { request: provisionRequest, pending: creating, fieldErrors: createErrors } = useRequest()
+const { request: deleteRequest, pending: deleting } = useRequest()
+const { request: migrateRequest, pending: migrating } = useRequest()
 
 const page = ref(0)
 const size = ref(20)
 const search = ref('')
 const q = refDebounced(search, 300)
-const { data, pending, refresh } = useApi<PageResponse<TenantDto>>('/platform/tenants', {
+const { data, pending, error, refresh } = useApi<PageResponse<TenantDto>>('/platform/tenants', {
   query: { page, size, q, sort: 'createdAt,desc' },
   server: false,
 })
@@ -26,43 +29,91 @@ const statuses: TenantStatus[] = ['ACTIVE', 'SUSPENDED']
 
 // --------------------------------------------------- provision
 const createDialog = ref(false)
-const creating = ref(false)
 const createForm = reactive({ slug: '', name: '', domain: '', adminEmail: '', adminFirstName: '', adminLastName: '' })
-const createErrors = ref<Record<string, string>>({})
 
 async function provision() {
-  creating.value = true
-  createErrors.value = {}
-  try {
-    const t = await $api<TenantDto>('/platform/tenants', { method: 'POST', body: { ...createForm, domain: createForm.domain || null } })
-    toast.add({ severity: 'success', summary: `Tenant ${t.slug} provisioned`, detail: `Schema ${t.schemaName}`, life: 4000 })
-    createDialog.value = false
-    Object.assign(createForm, { slug: '', name: '', domain: '', adminEmail: '', adminFirstName: '', adminLastName: '' })
-    await refresh()
-  } catch (e) {
-    const p = problemOf(e)
-    createErrors.value = p.errors ?? {}
-    toast.add({ severity: 'error', summary: p.detail, life: 5000 })
-  } finally {
-    creating.value = false
-  }
+  const res = await provisionRequest<TenantDto>('/platform/tenants', {
+    method: 'POST',
+    body: { ...createForm, domain: createForm.domain || null },
+    success: t => `Tenant ${t.slug} provisioned (schema ${t.schemaName})`,
+    error: 'Could not provision the tenant',
+  })
+  if (!res.ok) return
+  createDialog.value = false
+  Object.assign(createForm, { slug: '', name: '', domain: '', adminEmail: '', adminFirstName: '', adminLastName: '' })
+  await refresh()
 }
 
 // --------------------------------------------------- edit
 const editDialog = ref(false)
-const editForm = reactive<{ id: string, name: string, domain: string, status: TenantStatus }>({ id: '', name: '', domain: '', status: 'ACTIVE' })
+const { data: planNames } = useApi<string[]>('/platform/tenants/plans', { server: false })
+const plans = computed(() => planNames.value ?? [])
+const editForm = reactive<{ id: string, name: string, domain: string, status: TenantStatus, plan: string }>({ id: '', name: '', domain: '', status: 'ACTIVE', plan: 'free' })
 function openEdit(t: TenantDto) {
-  Object.assign(editForm, { id: t.id, name: t.name, domain: t.domain ?? '', status: t.status })
+  Object.assign(editForm, { id: t.id, name: t.name, domain: t.domain ?? '', status: t.status, plan: t.plan })
   editDialog.value = true
 }
 async function saveEdit() {
-  try {
-    await $api(`/platform/tenants/${editForm.id}`, { method: 'PUT', body: { name: editForm.name, domain: editForm.domain || null, status: editForm.status } })
-    editDialog.value = false
-    await refresh()
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  }
+  const res = await request(`/platform/tenants/${editForm.id}`, {
+    method: 'PUT',
+    body: { name: editForm.name, domain: editForm.domain || null, status: editForm.status, plan: editForm.plan },
+    success: 'Tenant saved',
+    error: 'Could not save the tenant',
+  })
+  if (!res.ok) return
+  editDialog.value = false
+  await refresh()
+}
+
+// --------------------------------------------------- status (schema version, size, usage)
+const statsDialog = ref(false)
+const stats = ref<TenantStatsDto | null>(null)
+const statsTenant = ref<TenantDto | null>(null)
+async function loadStats(t: TenantDto) {
+  const res = await request<TenantStatsDto>(`/platform/tenants/${t.id}/stats`, { error: 'Could not load tenant status' })
+  if (res.ok) stats.value = res.data
+  else statsDialog.value = false
+}
+async function openStats(t: TenantDto) {
+  statsTenant.value = t
+  stats.value = null
+  statsDialog.value = true
+  await loadStats(t)
+}
+async function migrateNow() {
+  const t = statsTenant.value
+  if (!t) return
+  const res = await migrateRequest(`/platform/tenants/${t.id}/migrate`, { method: 'POST', success: 'Schema migrated' })
+  if (res.ok) await loadStats(t)
+}
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let value = bytes / 1024
+  let i = 0
+  while (value >= 1024 && i < units.length - 1) { value /= 1024; i++ }
+  return `${value.toFixed(1)} ${units[i]}`
+}
+
+// --------------------------------------------------- offboarding (only suspended tenants)
+const deleteDialog = ref(false)
+const deleteTarget = ref<TenantDto | null>(null)
+const deleteConfirm = ref('')
+function openDelete(t: TenantDto) {
+  deleteTarget.value = t
+  deleteConfirm.value = ''
+  deleteDialog.value = true
+}
+async function deleteTenant() {
+  const t = deleteTarget.value
+  if (!t) return
+  const res = await deleteRequest(`/platform/tenants/${t.id}`, {
+    method: 'DELETE', query: { confirm: deleteConfirm.value }, success: `Tenant ${t.slug} deleted`,
+  })
+  if (!res.ok) return
+  if (tenantStore.managedTenant === t.slug) tenantStore.manage(null)
+  deleteDialog.value = false
+  await refresh()
 }
 
 /** Switch the dashboard into this tenant: subsequent /admin/* calls carry X-Tenant-ID. */
@@ -85,17 +136,26 @@ async function manage(t: TenantDto) {
       </div>
     </div>
 
-    <DataTable :value="data?.content ?? []" :loading="pending" lazy paginator :rows="size"
+    <LoadError :error="error" what="tenants" @retry="refresh()" />
+    <DataTable
+v-if="!error"
+:value="data?.content ?? []" :loading="pending" lazy paginator :rows="size"
                :total-records="data?.totalElements ?? 0" :rows-per-page-options="[10, 20, 50]" data-key="id" @page="onPage">
+      <template #empty>No tenants.</template>
       <Column field="name" header="Name" />
       <Column field="slug" header="Slug"><template #body="{ data: t }"><code>{{ t.slug }}</code></template></Column>
       <Column field="domain" header="Custom domain"><template #body="{ data: t }">{{ t.domain ?? '—' }}</template></Column>
       <Column field="schemaName" header="Schema"><template #body="{ data: t }"><code>{{ t.schemaName }}</code></template></Column>
+      <Column field="plan" header="Plan"><template #body="{ data: t }"><Tag :value="t.plan" severity="secondary" /></template></Column>
       <Column field="status" header="Status"><template #body="{ data: t }"><Tag :value="t.status" :severity="severity(t.status)" /></template></Column>
-      <Column style="width: 11rem; text-align: right">
+      <Column style="width: 17rem; text-align: right">
         <template #body="{ data: t }">
           <Button v-tooltip.top="'Manage users/settings (X-Tenant-ID)'" icon="pi pi-sign-in" text rounded aria-label="Manage" @click="manage(t)" />
+          <Button v-tooltip.top="'Status'" icon="pi pi-chart-bar" text rounded aria-label="Status" @click="openStats(t)" />
           <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEdit(t)" />
+          <Button
+v-if="t.status === 'SUSPENDED'" v-tooltip.top="'Delete tenant and all its data'" icon="pi pi-trash" text rounded
+                  severity="danger" aria-label="Delete" @click="openDelete(t)" />
         </template>
       </Column>
     </DataTable>
@@ -133,11 +193,51 @@ async function manage(t: TenantDto) {
       </form>
     </Dialog>
 
+    <Dialog v-model:visible="statsDialog" :header="`Status — ${statsTenant?.name ?? ''}`" modal :style="{ width: '28rem' }">
+      <div v-if="!stats" class="row" style="justify-content: center"><ProgressSpinner style="width: 2.5rem; height: 2.5rem" /></div>
+      <div v-else class="stack">
+        <div class="row-between">
+          <span>Schema version</span>
+          <span class="row">
+            <code>{{ stats.schemaVersion ?? '—' }}</code>
+            <Tag :value="stats.upToDate ? 'up to date' : `behind (latest ${stats.latestVersion})`" :severity="stats.upToDate ? 'success' : 'warn'" />
+          </span>
+        </div>
+        <div class="row-between"><span>Last migrated</span><span>{{ stats.lastMigratedAt ? new Date(stats.lastMigratedAt).toLocaleString() : '—' }}</span></div>
+        <div class="row-between"><span>Data size</span><span>{{ formatBytes(stats.sizeBytes) }}</span></div>
+        <div class="row-between"><span>Users</span><span>{{ stats.users }}</span></div>
+        <div class="row-between"><span>Active sessions</span><span>{{ stats.activeSessions }}</span></div>
+        <div v-if="!stats.upToDate" class="row" style="justify-content: flex-end">
+          <Button label="Run migrations" icon="pi pi-database" :loading="migrating" @click="migrateNow" />
+        </div>
+      </div>
+    </Dialog>
+
+    <Dialog v-model:visible="deleteDialog" header="Delete tenant" modal :style="{ width: '30rem' }">
+      <form class="stack" @submit.prevent="deleteTenant">
+        <Message severity="error" :closable="false">
+          This permanently drops schema <code>{{ deleteTarget?.schemaName }}</code> with every user, role and setting.
+          It cannot be undone — take a database backup first.
+        </Message>
+        <div class="field">
+          <label for="d-confirm">Type <code>{{ deleteTarget?.slug }}</code> to confirm</label>
+          <InputText id="d-confirm" v-model="deleteConfirm" autocomplete="off" fluid />
+        </div>
+        <div class="row" style="justify-content: flex-end">
+          <Button type="button" label="Cancel" severity="secondary" text @click="deleteDialog = false" />
+          <Button
+type="submit" label="Delete permanently" severity="danger" icon="pi pi-trash" :loading="deleting"
+                  :disabled="deleteConfirm !== deleteTarget?.slug" />
+        </div>
+      </form>
+    </Dialog>
+
     <Dialog v-model:visible="editDialog" header="Edit tenant" modal :style="{ width: '30rem' }">
       <form class="stack" @submit.prevent="saveEdit">
         <div class="field"><label for="e-name">Name</label><InputText id="e-name" v-model="editForm.name" required fluid /></div>
         <div class="field"><label for="e-domain">Custom domain</label><InputText id="e-domain" v-model="editForm.domain" fluid /></div>
         <div class="field"><label for="e-status">Status</label><Select id="e-status" v-model="editForm.status" :options="statuses" fluid /></div>
+        <div class="field"><label for="e-plan">Plan</label><Select id="e-plan" v-model="editForm.plan" :options="plans" fluid /></div>
         <div class="row" style="justify-content: flex-end">
           <Button type="button" label="Cancel" severity="secondary" text @click="editDialog = false" />
           <Button type="submit" label="Save" icon="pi pi-check" />

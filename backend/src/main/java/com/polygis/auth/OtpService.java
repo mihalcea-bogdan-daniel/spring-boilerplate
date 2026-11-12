@@ -46,7 +46,7 @@ public class OtpService {
     /** Validates a numeric code; failures count towards the attempt limit even if the caller's tx rolls back. */
     @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = ApiException.class)
     public void verifyNumeric(UUID userId, OtpPurpose purpose, String code) {
-        OneTimeToken token = repository.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(userId, purpose)
+        OneTimeToken token = repository.lockLatestActive(userId, purpose)
                 .filter(OneTimeToken::isActive)
                 .orElseThrow(() -> ApiException.badRequest("otp_invalid", "Invalid or expired code"));
         token.setAttempts(token.getAttempts() + 1);
@@ -70,11 +70,56 @@ public class OtpService {
 
     @Transactional
     public UUID consumeExchangeCode(String code) {
-        OneTimeToken token = repository.findByCodeHashAndPurpose(Hashing.sha256(code), OtpPurpose.OAUTH2_EXCHANGE)
+        OneTimeToken token = repository.lockByCodeHash(Hashing.sha256(code), OtpPurpose.OAUTH2_EXCHANGE)
                 .filter(OneTimeToken::isActive)
                 .orElseThrow(() -> ApiException.badRequest("code_invalid", "Invalid or expired code"));
         token.setConsumedAt(Instant.now());
         return token.getUserId();
+    }
+
+    /** One-time code a super-admin's browser carries to the tenant host to start an impersonated session. */
+    @Transactional
+    public String issueImpersonationCode(UUID userId, String actorEmail) {
+        String code = Hashing.randomToken(32);
+        OneTimeToken t = new OneTimeToken();
+        t.setUserId(userId);
+        t.setPurpose(OtpPurpose.IMPERSONATION);
+        t.setCodeHash(Hashing.sha256(code));
+        t.setData(actorEmail);
+        t.setExpiresAt(Instant.now().plus(Duration.ofSeconds(60)));
+        repository.save(t);
+        return code;
+    }
+
+    @Transactional
+    public OneTimeToken consumeImpersonationCode(String code) {
+        OneTimeToken token = repository.lockByCodeHash(Hashing.sha256(code), OtpPurpose.IMPERSONATION)
+                .filter(OneTimeToken::isActive)
+                .orElseThrow(() -> ApiException.badRequest("code_invalid", "Invalid or expired code"));
+        token.setConsumedAt(Instant.now());
+        return token;
+    }
+
+    /** Opaque handle proving "password/e-mail code was correct, second factor still pending" (5 minutes). */
+    @Transactional
+    public String issueMfaChallenge(UUID userId) {
+        String code = Hashing.randomToken(32);
+        save(userId, OtpPurpose.MFA_CHALLENGE, Hashing.sha256(code), Duration.ofMinutes(5));
+        return code;
+    }
+
+    /** Loads a pending challenge and counts the attempt; the caller consumes it on success. */
+    @Transactional(propagation = Propagation.MANDATORY, noRollbackFor = ApiException.class)
+    public OneTimeToken attemptMfaChallenge(String code) {
+        OneTimeToken token = repository.lockByCodeHash(Hashing.sha256(code), OtpPurpose.MFA_CHALLENGE)
+                .filter(OneTimeToken::isActive)
+                .orElseThrow(() -> ApiException.unauthorized("mfa_expired", "Sign-in expired, please start again"));
+        token.setAttempts(token.getAttempts() + 1);
+        if (token.getAttempts() > props.maxAttempts()) {
+            token.setConsumedAt(Instant.now());
+            throw ApiException.unauthorized("mfa_expired", "Too many attempts, please sign in again");
+        }
+        return token;
     }
 
     private void save(UUID userId, OtpPurpose purpose, String hash, Duration ttl) {

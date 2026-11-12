@@ -18,11 +18,20 @@ public final class TenantDtos {
     }
 
     public record TenantDto(UUID id, String slug, String name, String schemaName, String domain,
-                            TenantStatus status, Instant createdAt) {
+                            TenantStatus status, String plan, Instant createdAt) {
         public static TenantDto from(Tenant t) {
             return new TenantDto(t.getId(), t.getSlug(), t.getName(), t.getSchemaName(), t.getDomain(),
-                    t.getStatus(), t.getCreatedAt());
+                    t.getStatus(), t.getPlan(), t.getCreatedAt());
         }
+    }
+
+    /**
+     * Operational snapshot of one tenant schema.
+     *
+     * @param upToDate true when the schema is at the same migration version as the platform schema
+     */
+    public record TenantStatsDto(String slug, String schemaVersion, String latestVersion, boolean upToDate,
+                                 Instant lastMigratedAt, long sizeBytes, long users, long activeSessions) {
     }
 
     public record CreateTenantRequest(
@@ -37,6 +46,7 @@ public final class TenantDtos {
 
     public record UpdateTenantRequest(@NotBlank @Size(max = 255) String name,
                                       @Size(max = 255) String domain,
-                                      @NotNull TenantStatus status) {
+                                      @NotNull TenantStatus status,
+                                      @Pattern(regexp = "^[a-z][a-z0-9-]{0,39}$") String plan) {
     }
 }

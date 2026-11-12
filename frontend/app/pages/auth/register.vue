@@ -42,13 +42,15 @@ async function submit() {
         </div>
         <div class="field">
           <label for="email">E-mail</label>
-          <InputText id="email" v-model="form.email" type="email" autocomplete="email" required
+          <InputText
+id="email" v-model="form.email" type="email" autocomplete="email" required
                      :invalid="!!fieldErrors.email" fluid />
           <small v-if="fieldErrors.email" class="error">{{ fieldErrors.email }}</small>
         </div>
         <div class="field">
           <label for="pw">Password</label>
-          <Password id="pw" v-model="form.password" toggle-mask autocomplete="new-password" required
+          <Password
+id="pw" v-model="form.password" toggle-mask autocomplete="new-password" required
                     :invalid="!!fieldErrors.password" fluid />
           <small v-if="fieldErrors.password" class="error">{{ fieldErrors.password }}</small>
           <small class="muted">At least 10 characters with letters and digits.</small>

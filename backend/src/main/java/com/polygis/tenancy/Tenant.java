@@ -35,6 +35,10 @@ public class Tenant {
     @Column(nullable = false, length = 20)
     private TenantStatus status = TenantStatus.PROVISIONING;
 
+    /** Key into app.plans (quotas, feature flags). */
+    @Column(nullable = false, length = 40)
+    private String plan = "free";
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 

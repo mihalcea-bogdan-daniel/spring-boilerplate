@@ -8,9 +8,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import com.polygis.common.PageResponse;
+import com.polygis.common.Sorts;
 import com.polygis.user.dto.UserDtos.*;
 
 import jakarta.validation.Valid;
@@ -30,7 +33,8 @@ public class UserAdminController {
     public PageResponse<UserDto> users(@RequestParam(required = false) String q,
                                        @PageableDefault(size = 20, sort = "createdAt",
                                                direction = Sort.Direction.DESC) Pageable pageable) {
-        return service.search(q, pageable);
+        return service.search(q, Sorts.allow(pageable, "email", "firstName", "lastName", "status", "createdAt",
+                "lastLoginAt"));
     }
 
     @GetMapping("/users/{id}")
@@ -52,11 +56,18 @@ public class UserAdminController {
         return service.update(id, req);
     }
 
+    @PostMapping("/users/{id}/invite")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @PreAuthorize("hasAuthority('user:write')")
+    public void resendInvite(@PathVariable UUID id) {
+        service.resendInvite(id);
+    }
+
     @DeleteMapping("/users/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('user:write')")
-    public void delete(@PathVariable UUID id) {
-        service.delete(id);
+    public void delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        service.delete(id, jwt == null ? null : UUID.fromString(jwt.getSubject())); // jwt is null for API keys
     }
 
     @GetMapping("/roles")

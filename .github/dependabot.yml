@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /backend
+    schedule: { interval: weekly }
+    groups:
+      spring: { patterns: ["org.springframework*", "io.spring*"] }
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly }
+    ignore:
+      # stay on PrimeVue 4 until the app is migrated deliberately
+      - dependency-name: "primevue"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@primevue/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@primeuix/themes"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }

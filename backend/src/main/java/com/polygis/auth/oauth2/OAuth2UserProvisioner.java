@@ -19,9 +19,12 @@ public class OAuth2UserProvisioner {
     private final RoleRepository roles;
     private final SettingsService settings;
     private final AppProperties props;
+    private final com.polygis.tenancy.PlanService plans;
 
     public OAuth2UserProvisioner(UserRepository users, UserIdentityRepository identities, RoleRepository roles,
-                                 SettingsService settings, AppProperties props) {
+                                 SettingsService settings, AppProperties props,
+                                 com.polygis.tenancy.PlanService plans) {
+        this.plans = plans;
         this.users = users;
         this.identities = identities;
         this.roles = roles;
@@ -36,9 +39,9 @@ public class OAuth2UserProvisioner {
             return switch (provider) {
                 case "google" -> new ProviderProfile(provider, str(a, "sub"), str(a, "email"),
                         Boolean.TRUE.equals(a.get("email_verified")), str(a, "given_name"), str(a, "family_name"));
-                // GitHub only exposes a public e-mail here; private ones need GET /user/emails (see README)
-                case "github" -> new ProviderProfile(provider, str(a, "id"), str(a, "email"), str(a, "email") != null,
-                        str(a, "name"), null);
+                // e-mail + email_verified are resolved from /user/emails by GitHubEmailOAuth2UserService
+                case "github" -> new ProviderProfile(provider, str(a, "id"), str(a, "email"),
+                        Boolean.TRUE.equals(a.get("email_verified")), str(a, "name"), null);
                 default -> new ProviderProfile(provider, str(a, "sub"), str(a, "email"),
                         Boolean.TRUE.equals(a.get("email_verified")), str(a, "given_name"), str(a, "family_name"));
             };
@@ -66,6 +69,7 @@ public class OAuth2UserProvisioner {
                     || !settings.getBoolean(SettingsService.ALLOW_SELF_REGISTRATION, true)) {
                 throw ApiException.forbidden("registration_disabled", "No account for this e-mail");
             }
+            plans.assertCanAddUser(users::count);
             User u = new User();
             u.setEmail(p.email().toLowerCase());
             u.setFirstName(p.firstName());
@@ -76,7 +80,7 @@ public class OAuth2UserProvisioner {
         if (user.getStatus() == UserStatus.DISABLED) {
             throw ApiException.forbidden("account_disabled", "Account disabled");
         }
-        user.setEmailVerified(true);
+        user.verifyEmailAsOwner();
         user.setStatus(UserStatus.ACTIVE);
         users.save(user);
 

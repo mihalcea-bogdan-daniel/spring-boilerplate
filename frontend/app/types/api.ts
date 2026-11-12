@@ -7,6 +7,10 @@ export interface Me {
   roles: string[]
   permissions: string[]
   superAdmin: boolean
+  hasPassword: boolean
+  mfaEnabled: boolean
+  /** E-mail of the super-admin when this is an impersonated session, otherwise null. */
+  impersonatedBy: string | null
 }
 
 export interface TokenResponse {
@@ -14,6 +18,12 @@ export interface TokenResponse {
   tokenType: 'Bearer'
   expiresIn: number
   user: Me
+}
+
+/** Returned by login endpoints instead of tokens when the account has two-factor authentication. */
+export interface MfaChallengeResponse {
+  mfaRequired: true
+  mfaToken: string
 }
 
 export interface MessageResponse {
@@ -63,7 +73,58 @@ export interface TenantDto {
   schemaName: string
   domain: string | null
   status: TenantStatus
+  plan: string
   createdAt: string
+}
+
+export interface PasskeyDto {
+  id: string
+  name: string
+  createdAt: string
+  lastUsedAt: string | null
+  /** Synced through a password manager / platform account (iCloud Keychain, Google Password Manager...). */
+  synced: boolean
+}
+
+export interface ApiKeyDto {
+  id: string
+  name: string
+  keyPrefix: string
+  permissions: string[]
+  createdBy: string | null
+  createdAt: string
+  lastUsedAt: string | null
+}
+
+export interface TenantStatsDto {
+  slug: string
+  schemaVersion: string | null
+  latestVersion: string | null
+  upToDate: boolean
+  lastMigratedAt: string | null
+  sizeBytes: number
+  users: number
+  activeSessions: number
+}
+
+export interface SessionDto {
+  id: string
+  userAgent: string | null
+  ipAddress: string | null
+  createdAt: string
+  expiresAt: string
+}
+
+export interface AuditEventDto {
+  id: string
+  occurredAt: string
+  actorEmail: string | null
+  actorTenant: string | null
+  action: string
+  targetType: string | null
+  targetId: string | null
+  details: string | null
+  ipAddress: string | null
 }
 
 /** RFC 7807 body produced by GlobalExceptionHandler. */
@@ -73,4 +134,6 @@ export interface Problem {
   detail?: string
   code?: string
   errors?: Record<string, string>
+  /** Same value as the X-Request-Id header and the server logs. */
+  requestId?: string
 }

@@ -8,6 +8,8 @@ public final class JwtClaims {
     public static final String PERMISSIONS = "perms";
     public static final String TOKEN_TYPE = "typ";
     public static final String ACCESS = "access";
+    /** "Actor": e-mail of the super-admin impersonating the token's subject (RFC 8693 naming). */
+    public static final String ACTOR = "act";
 
     private JwtClaims() {
     }

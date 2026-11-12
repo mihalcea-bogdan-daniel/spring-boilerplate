@@ -19,7 +19,7 @@ public interface TenantRepository extends JpaRepository<Tenant, UUID> {
 
     @Query("""
             select t from Tenant t
-            where :q is null or lower(t.slug) like lower(concat('%', :q, '%'))
+            where :q = '' or lower(t.slug) like lower(concat('%', :q, '%'))
                              or lower(t.name) like lower(concat('%', :q, '%'))
             """)
     Page<Tenant> search(@Param("q") String q, Pageable pageable);

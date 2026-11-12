@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polygis Starter</title>
+<meta name="description" content="Set up, run and deploy the multi-tenant Spring Boot + Nuxt starter.">
+<meta name="theme-color" content="#171817">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<style>
+  :root {
+    --accent: #dc7e3d; --accent-text: #a24f24; --on-accent: #171817;
+    --bg: #f6f6f5; --panel: #ffffff; --panel-2: #ececea; --line: #d9dadb; --stone: #c2bfb4;
+    --text: #171817; --muted: #5d5d5a; --code-bg: #171817; --code-text: #ececea; --code-muted: #9b998f;
+    --radius: 12px; --side: 16rem;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --accent-text: #e58f5c; --bg: #171817; --panel: #222321; --panel-2: #2e2f2d; --line: #454543;
+      --stone: #5d5d5a; --text: #ececea; --muted: #c2bfb4; --code-bg: #0f100f; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --accent-text: #e58f5c; --bg: #171817; --panel: #222321; --panel-2: #2e2f2d; --line: #454543;
+    --stone: #5d5d5a; --text: #ececea; --muted: #c2bfb4; --code-bg: #0f100f; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
+  body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 16px; }
+  a { color: var(--accent-text); text-underline-offset: 2px; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .875em; }
+  :not(pre) > code { background: var(--panel-2); padding: .1em .35em; border-radius: 5px; overflow-wrap: anywhere; }
+
+  /* top bar */
+  .top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: .75rem;
+    padding: .75rem 1rem; background: var(--code-bg); color: #ececea; border-bottom: 3px solid var(--accent); }
+  .top .brand { display: flex; align-items: center; gap: .6rem; font-weight: 800; letter-spacing: .01em; color: inherit; text-decoration: none; }
+  .top .brand svg { width: 2rem; height: 2rem; }
+  .top .spacer { flex: 1; }
+  .top button { background: transparent; color: inherit; border: 1px solid #454543; border-radius: 8px;
+    padding: .35rem .6rem; cursor: pointer; font: inherit; font-size: .85rem; }
+  .top button:hover { border-color: var(--accent); }
+  #menu-btn { display: none; }
+
+  /* layout */
+  .layout { display: grid; grid-template-columns: var(--side) minmax(0, 1fr); max-width: 76rem; margin: 0 auto; }
+  nav.side { position: sticky; top: 3.75rem; align-self: start; height: calc(100vh - 3.75rem); overflow-y: auto;
+    padding: 1.5rem 1rem; border-right: 1px solid var(--line); }
+  nav.side h4 { margin: 1.25rem 0 .35rem; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  nav.side h4:first-child { margin-top: 0; }
+  nav.side a { display: block; padding: .3rem .6rem; border-radius: 7px; color: var(--text); text-decoration: none; font-size: .92rem; }
+  nav.side a:hover { background: var(--panel-2); }
+  nav.side a.active { background: var(--panel-2); box-shadow: inset 3px 0 0 var(--accent); }
+  main { padding: 2rem clamp(1rem, 4vw, 3rem) 5rem; min-width: 0; }
+
+  /* hero */
+  .hero { padding: 1rem 0 1.5rem; }
+  .hero h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1.15; margin: 0 0 .75rem; }
+  .hero h1 span { color: var(--accent-text); }
+  .hero p { color: var(--muted); font-size: 1.1rem; max-width: 44rem; margin: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 1.25rem; }
+  .chip { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: .2rem .7rem; font-size: .82rem; color: var(--muted); }
+
+  section { padding-top: 1.5rem; }
+  h2 { font-size: 1.5rem; margin: 2rem 0 .75rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.1rem; margin: 1.5rem 0 .5rem; }
+  p, li { max-width: 46rem; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .75rem; margin: 1rem 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.1rem; }
+  .card b { display: block; margin-bottom: .25rem; }
+  .card span { color: var(--muted); font-size: .9rem; }
+
+  /* steps */
+  ol.steps { list-style: none; padding: 0; margin: 1rem 0; counter-reset: s; }
+  ol.steps > li { counter-increment: s; position: relative; padding: 0 0 1.25rem 2.75rem; max-width: none; }
+  ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 1.9rem; height: 1.9rem;
+    border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 800; display: grid; place-items: center; font-size: .9rem; }
+  ol.steps > li::after { content: ""; position: absolute; left: .93rem; top: 2.1rem; bottom: .3rem; width: 2px; background: var(--line); }
+  ol.steps > li:last-child::after { display: none; }
+  ol.steps > li > strong { display: block; margin-bottom: .25rem; }
+
+  /* code */
+  .code { position: relative; margin: .6rem 0 1rem; }
+  pre { margin: 0; background: var(--code-bg); color: var(--code-text); padding: .9rem 1rem; border-radius: 10px;
+    overflow-x: auto; font-size: .85rem; line-height: 1.55; }
+  pre .c { color: var(--code-muted); }
+  .copy { position: absolute; top: .45rem; right: .45rem; background: #2e2f2d; color: #ececea; border: 1px solid #454543;
+    border-radius: 6px; font-size: .75rem; padding: .2rem .5rem; cursor: pointer; opacity: .85; }
+  .copy:hover { opacity: 1; border-color: var(--accent); }
+
+  /* tables */
+  .table { overflow-x: auto; margin: .75rem 0 1rem; border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; background: var(--panel); }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--panel-2); font-weight: 700; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+
+  .note { border-left: 4px solid var(--accent); background: var(--panel); padding: .75rem 1rem; border-radius: 0 10px 10px 0; margin: 1rem 0; max-width: 46rem; }
+  .note.warn { border-left-color: #c3652a; }
+  ul.check { list-style: none; padding: 0; }
+  ul.check li { padding-left: 1.75rem; position: relative; margin: .4rem 0; }
+  ul.check li::before { content: ""; position: absolute; left: 0; top: .3rem; width: 1rem; height: 1rem; border: 2px solid var(--stone); border-radius: 4px; }
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: .6rem 1rem; margin: .5rem 0; max-width: 46rem; }
+  summary { cursor: pointer; font-weight: 600; }
+  footer { color: var(--muted); font-size: .85rem; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    #menu-btn { display: inline-block; }
+    nav.side { position: fixed; top: 3.75rem; left: 0; width: min(18rem, 85vw); background: var(--bg); z-index: 9;
+      transform: translateX(-100%); transition: transform .2s; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+    nav.side.open { transform: none; }
+    main { padding: 1.25rem 1rem 4rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <button id="menu-btn" aria-label="Open navigation" aria-expanded="false">☰</button>
+  <a class="brand" href="#top">
+    <svg viewBox="0 0 512 512" aria-hidden="true">
+      <defs><clipPath id="f"><rect x="0" y="256" width="512" height="256"/></clipPath></defs>
+      <rect width="512" height="512" rx="112" fill="#171817"/>
+      <ellipse cx="256" cy="256" rx="196" ry="74" transform="rotate(-28 256 256)" fill="none" stroke="#dc7e3d" stroke-width="20"/>
+      <polygon points="256,132 363,194 363,318 256,380 149,318 149,194" fill="none" stroke="#d9dadb" stroke-width="26" stroke-linejoin="round"/>
+      <g transform="rotate(-28 256 256)" clip-path="url(#f)">
+        <ellipse cx="256" cy="256" rx="196" ry="74" fill="none" stroke="#171817" stroke-width="40"/>
+        <ellipse cx="256" cy="256" rx="196" ry="74" fill="none" stroke="#dc7e3d" stroke-width="20"/>
+      </g>
+      <circle cx="427" cy="209" r="32" fill="#dc7e3d" stroke="#171817" stroke-width="12"/>
+    </svg>
+    Polygis Starter
+  </a>
+  <span class="spacer"></span>
+  <button id="theme-btn" aria-label="Toggle colour theme">◐ Theme</button>
+</header>
+
+<div class="layout" id="top">
+  <nav class="side" id="side">
+    <h4>Start</h4>
+    <a href="#overview">Overview</a>
+    <a href="#requirements">Requirements</a>
+    <a href="#quick-start">Run locally</a>
+    <a href="#docker">Full stack in Docker</a>
+    <h4>Understand</h4>
+    <a href="#layout">Repository layout</a>
+    <a href="#tenancy">How tenants work</a>
+    <a href="#auth">Sign-in methods</a>
+    <h4>Build</h4>
+    <a href="#develop">Adding a feature</a>
+    <a href="#quality">Checks before a PR</a>
+    <h4>Ship</h4>
+    <a href="#config">Configuration</a>
+    <a href="#production">Production checklist</a>
+    <a href="#troubleshooting">Troubleshooting</a>
+  </nav>
+
+  <main>
+    <div class="hero">
+      <h1>A multi-tenant SaaS starter, <span>ready to run</span>.</h1>
+      <p>Spring Boot API with one PostgreSQL schema per tenant, a Nuxt dashboard, and sign-in, roles, audit and
+        billing-ready plans already wired. Clone it, run four commands, and start on your own domain model.</p>
+      <div class="chips">
+        <span class="chip">Spring Boot 3.5 · Java 17+</span><span class="chip">PostgreSQL 16</span>
+        <span class="chip">Nuxt 4 · TypeScript</span><span class="chip">PrimeVue 4</span>
+        <span class="chip">Gradle</span><span class="chip">Installable PWA</span>
+      </div>
+    </div>
+
+    <section id="overview">
+      <h2>Overview</h2>
+      <div class="cards">
+        <div class="card"><b>Schema per tenant</b><span>The sub-domain picks the tenant; each one gets its own <code>t_&lt;slug&gt;</code> schema, migrated by Flyway at startup.</span></div>
+        <div class="card"><b>Every sign-in method</b><span>Password, e-mail code, Google and GitHub, passkeys, authenticator-app MFA, API keys.</span></div>
+        <div class="card"><b>Admin dashboard</b><span>Users, roles and permissions, settings and branding, API keys, audit log.</span></div>
+        <div class="card"><b>Platform console</b><span>Super-admins provision, suspend, inspect and delete tenants, and can sign in as a tenant user.</span></div>
+        <div class="card"><b>Safe by default</b><span>Refuses to start in production with dev secrets; rate limits, breached-password check, encrypted secrets.</span></div>
+        <div class="card"><b>Operable</b><span>Request ids in every log line and error, Sentry when you add a DSN, CI and Dependabot.</span></div>
+      </div>
+    </section>
+
+    <section id="requirements">
+      <h2>Requirements</h2>
+      <div class="table"><table>
+        <tr><th>Tool</th><th>Version</th><th>Used for</th></tr>
+        <tr><td>JDK</td><td>17+ (21 recommended)</td><td>Backend; Gradle comes with the wrapper</td></tr>
+        <tr><td>Node.js</td><td>22.21+ or 24.11+</td><td>Frontend</td></tr>
+        <tr><td>Docker</td><td>any recent</td><td>PostgreSQL and the Mailpit mail catcher (or install them yourself)</td></tr>
+        <tr><td>Browser</td><td>Chrome, Edge or Firefox</td><td><code>*.localhost</code> sub-domains resolve to your machine without DNS setup</td></tr>
+      </table></div>
+    </section>
+
+    <section id="quick-start">
+      <h2>Run locally</h2>
+      <p>Three terminals: database and mail, backend, frontend.</p>
+      <ol class="steps">
+        <li><strong>Clone and start PostgreSQL + Mailpit</strong>
+          <div class="code"><pre>git clone https://github.com/mihalcea-bogdan-daniel/spring-boilerplate.git
+cd spring-boilerplate
+docker compose up -d postgres mailpit</pre></div>
+        </li>
+        <li><strong>Start the backend</strong> (dev profile, port 8080)
+          <div class="code"><pre>cd backend
+./gradlew bootRun --args='--app.seed=true'   <span class="c"># omit --args to start without demo data</span></pre></div>
+          The first start creates the <code>platform</code> tenant and a super-admin; <code>--app.seed=true</code> adds the demo tenants <code>acme</code> and <code>globex</code>.
+        </li>
+        <li><strong>Start the frontend</strong> (port 3000)
+          <div class="code"><pre>cd frontend
+npm install
+npm run dev</pre></div>
+        </li>
+        <li><strong>Sign in</strong>
+          <div class="table"><table>
+            <tr><th>Open</th><th>As</th><th>Credentials (dev only)</th></tr>
+            <tr><td><a href="http://admin.localhost:3000">admin.localhost:3000</a></td><td>Super-admin</td><td><code>superadmin@admin.localhost</code> / <code>ChangeMe!123</code></td></tr>
+            <tr><td><a href="http://acme.localhost:3000">acme.localhost:3000</a></td><td>Tenant admin (demo data)</td><td><code>admin@acme.test</code> / <code>Demo-Passw0rd!</code></td></tr>
+            <tr><td><a href="http://localhost:8025">localhost:8025</a></td><td>Mailpit</td><td>sign-in codes and invitations land here</td></tr>
+            <tr><td><a href="http://localhost:8080/api/docs/ui">localhost:8080/api/docs/ui</a></td><td>Swagger UI</td><td>send <code>X-Tenant-ID: platform</code></td></tr>
+          </table></div>
+        </li>
+      </ol>
+      <div class="note">In dev, Nuxt proxies <code>/api</code> to the backend and keeps the <code>Host</code> header, exactly like nginx in production, so <code>acme.localhost:3000</code> lands in the <code>acme</code> tenant.</div>
+    </section>
+
+    <section id="docker">
+      <h2>Full stack in Docker</h2>
+      <p>Postgres, Mailpit, backend, frontend and nginx, the same shape as production.</p>
+      <div class="code"><pre>cp .env.example .env      <span class="c"># then set JWT_SECRET and SUPER_ADMIN_PASSWORD</span>
+docker compose up --build</pre></div>
+      <p>Open <a href="http://admin.localhost">admin.localhost</a> for the platform console and <code>http://&lt;slug&gt;.localhost</code> for a tenant. The backend runs with the <code>prod</code> profile here, so it refuses to start with placeholder secrets. Generate them with:</p>
+      <div class="code"><pre>openssl rand -base64 48   <span class="c"># JWT_SECRET</span>
+openssl rand -base64 32   <span class="c"># APP_ENCRYPTION_KEY</span></pre></div>
+    </section>
+
+    <section id="layout">
+      <h2>Repository layout</h2>
+      <div class="code"><pre>backend/                 Spring Boot API (Gradle, package com.polygis)
+  tenancy/               host → tenant, schema switching, Flyway per tenant, plans, jobs
+  auth/  mfa/  passkey/  sign-in flows, tokens, TOTP, WebAuthn
+  user/  apikey/  audit/  RBAC admin API, machine keys, audit log
+  platform/  settings/   tenant provisioning, per-tenant settings and branding
+  resources/db/migration/public   platform registry (runs once)
+  resources/db/migration/tenant   everything else (runs in every tenant schema)
+frontend/                Nuxt 4 dashboard
+  AGENTS.md  docs/       rules and guides for contributors and coding agents
+  app/plugins/api.ts     $api: token, tenant header, refresh on 401
+  app/composables/       useApi (load data), useRequest (actions with toasts)
+  app/theme/             brand palette and PrimeVue preset
+infra/nginx  infra/apache  reverse-proxy configs
+docs/                    this site</pre></div>
+    </section>
+
+    <section id="tenancy">
+      <h2>How tenants work</h2>
+      <p>The host name decides the tenant. Pages never pass a tenant id; the backend works it out before any controller runs.</p>
+      <div class="code"><pre>https://acme.example.com/api/admin/users
+  nginx            keeps Host, adds X-Forwarded-* (trusted only from proxy addresses)
+  tenant filter    custom domain? → &lt;slug&gt;.&lt;base-domain&gt;? → tenant "acme"
+  JWT check        the token's tenant must be "acme"
+                   … unless it is a platform SUPER_ADMIN sending X-Tenant-ID: globex
+  @PreAuthorize    hasAuthority('user:read')
+  Hibernate        search_path → t_acme, reset to public when the connection returns</pre></div>
+      <div class="table"><table>
+        <tr><th>Host</th><th>Tenant</th></tr>
+        <tr><td><code>acme.example.com</code></td><td><code>acme</code>, schema <code>t_acme</code></td></tr>
+        <tr><td><code>portal.customer.com</code></td><td>the tenant whose custom domain matches</td></tr>
+        <tr><td><code>admin.example.com</code></td><td><code>platform</code>, home of super-admins</td></tr>
+        <tr><td>anything else</td><td><code>404 Unknown tenant</code></td></tr>
+      </table></div>
+      <p><b>New tenant:</b> <i>Platform → Tenants → New</i> creates the schema, runs the tenant migrations, creates the first admin and e-mails an invitation. A new migration file rolls out to every tenant on the next start.</p>
+    </section>
+
+    <section id="auth">
+      <h2>Sign-in methods</h2>
+      <div class="table"><table>
+        <tr><th>Method</th><th>Notes</th></tr>
+        <tr><td>E-mail + password</td><td>BCrypt, lockout after 5 failures, breached passwords rejected</td></tr>
+        <tr><td>E-mail code</td><td>6 digits, 10 minutes, 5 attempts</td></tr>
+        <tr><td>Google, GitHub</td><td>set the client id and secret; only verified e-mails are accepted</td></tr>
+        <tr><td>Passkeys</td><td>added from the profile; bound to the workspace host; counts as two-factor</td></tr>
+        <tr><td>Authenticator app</td><td>TOTP with recovery codes, required after any password, code or social sign-in once enabled</td></tr>
+        <tr><td>API keys</td><td><code>X-API-Key</code> header, for plans with the <code>api-keys</code> feature</td></tr>
+      </table></div>
+      <p>Sessions use a 15-minute access token and a rotating refresh token in an <code>HttpOnly</code> cookie. Changing the password, disabling a user or changing their roles takes effect immediately.</p>
+    </section>
+
+    <section id="develop">
+      <h2>Adding a feature</h2>
+      <ol class="steps">
+        <li><strong>Migration</strong> in <code>backend/src/main/resources/db/migration/tenant/</code>: the table, plus the new permissions (<code>project:read</code>, <code>project:write</code>).</li>
+        <li><strong>Entity, repository, service, controller</strong> under <code>com.polygis.&lt;module&gt;</code>; guard endpoints with <code>@PreAuthorize("hasAuthority('project:read')")</code>.</li>
+        <li><strong>Integration test</strong> extending <code>IntegrationTestBase</code> (embedded PostgreSQL; no Docker needed).</li>
+        <li><strong>Page</strong> in <code>frontend/app/pages/admin/</code>, following <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/docs/adding-a-page.md">the page recipe</a>: <code>useApi()</code> + <code>&lt;LoadError&gt;</code> to show data, <code>useRequest()</code> for buttons, <code>definePageMeta({ permission })</code>.</li>
+        <li><strong>Menu entry</strong> in <code>frontend/app/layouts/default.vue</code>.</li>
+      </ol>
+      <div class="note">Coding agents: read <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/AGENTS.md"><code>frontend/AGENTS.md</code></a> first. It lists the components to use, how errors become toasts, and the files not to touch.</div>
+      <h3>Keep API types in sync</h3>
+      <div class="code"><pre>cd backend && ./gradlew test        <span class="c"># writes build/openapi.json</span>
+cd ../frontend && npm run gen:api   <span class="c"># regenerates app/types/api.generated.ts</span></pre></div>
+    </section>
+
+    <section id="quality">
+      <h2>Checks before a PR</h2>
+      <p>CI runs the same commands on every push.</p>
+      <div class="code"><pre>cd backend && ./gradlew build
+cd ../frontend && npm run lint && npm run typecheck && npm test && npm run build</pre></div>
+    </section>
+
+    <section id="config">
+      <h2>Configuration</h2>
+      <p>All settings are environment variables; <code>.env.example</code> lists them with comments.</p>
+      <div class="table"><table>
+        <tr><th>Variable</th><th>Required in prod</th><th>Purpose</th></tr>
+        <tr><td><code>SPRING_PROFILES_ACTIVE</code></td><td>yes</td><td><code>prod</code>. There is no default profile; <code>dev</code> is only for local work.</td></tr>
+        <tr><td><code>APP_BASE_DOMAIN</code></td><td>yes</td><td>tenants live at <code>&lt;slug&gt;.APP_BASE_DOMAIN</code></td></tr>
+        <tr><td><code>APP_PLATFORM_DOMAIN</code></td><td>yes</td><td>super-admin console host</td></tr>
+        <tr><td><code>JWT_SECRET</code></td><td>yes</td><td>≥ 32 random bytes. For RS256 set <code>JWT_ALGORITHM=RS256</code> and <code>JWT_PRIVATE_KEY</code>.</td></tr>
+        <tr><td><code>APP_ENCRYPTION_KEY</code></td><td>recommended</td><td>AES-256 key for secrets stored in the database</td></tr>
+        <tr><td><code>SUPER_ADMIN_EMAIL</code>, <code>SUPER_ADMIN_PASSWORD</code></td><td>yes</td><td>first platform account</td></tr>
+        <tr><td><code>DB_URL</code>, <code>DB_USER</code>, <code>DB_PASSWORD</code></td><td>yes</td><td>PostgreSQL connection</td></tr>
+        <tr><td><code>TRUSTED_PROXIES</code></td><td>if needed</td><td>regex of proxy IPs allowed to send <code>X-Forwarded-*</code>; defaults to loopback and private networks</td></tr>
+        <tr><td><code>MAIL_HOST</code>, <code>MAIL_PORT</code>, <code>MAIL_USER</code>, <code>MAIL_PASSWORD</code>, <code>MAIL_FROM</code></td><td>yes</td><td>SMTP for codes and invitations</td></tr>
+        <tr><td><code>GOOGLE_CLIENT_ID</code>, <code>GITHUB_CLIENT_ID</code> (+ secrets)</td><td>optional</td><td>social login; redirect URI <code>https://&lt;host&gt;/api/login/oauth2/code/&lt;provider&gt;</code></td></tr>
+        <tr><td><code>SENTRY_DSN</code>, <code>NUXT_PUBLIC_SENTRY_DSN</code></td><td>optional</td><td>error reporting; off when empty</td></tr>
+        <tr><td><code>NUXT_PUBLIC_APP_NAME</code></td><td>optional</td><td>product name in the UI and the installed app</td></tr>
+      </table></div>
+    </section>
+
+    <section id="production">
+      <h2>Production checklist</h2>
+      <ul class="check">
+        <li>Secrets come from a secret store, not <code>.env</code> in the image.</li>
+        <li>Wildcard TLS certificate for <code>*.example.com</code> (DNS-01); custom domains need their own.</li>
+        <li>The backend is reachable only from nginx and the Nuxt server; <code>TRUSTED_PROXIES</code> matches your proxy.</li>
+        <li><code>limit_req</code> on <code>/api/auth/</code> at nginx, on top of the built-in limits.</li>
+        <li>Backups include <code>public</code> and every <code>t_*</code> schema.</li>
+        <li>Social-login redirect URIs registered per tenant host, or one central callback host (<code>OAUTH2_REDIRECT_BASE</code>).</li>
+        <li>Sentry DSNs set, and source maps uploaded with <code>SENTRY_AUTH_TOKEN</code> in CI.</li>
+      </ul>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>Troubleshooting</h2>
+      <details><summary><code>acme.localhost</code> does not open</summary>
+        <p>Safari and some tools don't resolve <code>*.localhost</code>. Use Chrome, Edge or Firefox, or add a line per tenant to <code>/etc/hosts</code>, e.g. <code>127.0.0.1 acme.localhost admin.localhost</code>.</p></details>
+      <details><summary>Backend refuses to start: "Unsafe configuration for profiles …"</summary>
+        <p>Outside the <code>dev</code>/<code>test</code> profiles it rejects the dev JWT secret, the default super-admin password and the tenant header fallback. Set real values, or run locally with <code>./gradlew bootRun</code> (which uses <code>dev</code>).</p></details>
+      <details><summary><code>404 Unknown tenant</code></summary>
+        <p>The host doesn't match a tenant slug, custom domain or the platform domain. Check <code>APP_BASE_DOMAIN</code>, and that your proxy forwards the original <code>Host</code>.</p></details>
+      <details><summary>Port 5432 is already in use</summary>
+        <p>A local PostgreSQL is running. Stop it, or point the backend at it with <code>DB_URL</code>, <code>DB_USER</code> and <code>DB_PASSWORD</code>.</p></details>
+      <details><summary>No e-mail arrives</summary>
+        <p>In dev every message goes to Mailpit at <a href="http://localhost:8025">localhost:8025</a>. Sending happens after the database commit and retries a few times; failures are logged with the request id.</p></details>
+      <details><summary>"Install app" doesn't appear</summary>
+        <p>The service worker is off in <code>npm run dev</code>. Try <code>npm run build && npm run preview</code>, on <code>localhost</code> or over HTTPS.</p></details>
+    </section>
+
+    <footer>Polygis Starter · Source on <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate">GitHub</a></footer>
+  </main>
+</div>
+
+<script>
+  // copy buttons on code blocks
+  document.querySelectorAll('.code').forEach(function (box) {
+    var btn = document.createElement('button');
+    btn.className = 'copy'; btn.type = 'button'; btn.textContent = 'Copy';
+    btn.addEventListener('click', function () {
+      var text = box.querySelector('pre').innerText.split('\n')
+        .map(function (l) { return l.replace(/\s+#\s.*$/, ''); }).join('\n').trim();
+      navigator.clipboard.writeText(text).then(function () {
+        btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+      });
+    });
+    box.appendChild(btn);
+  });
+
+  // theme toggle (remembered per browser)
+  var root = document.documentElement;
+  try { var saved = localStorage.getItem('theme'); if (saved) root.dataset.theme = saved; } catch (e) {}
+  document.getElementById('theme-btn').addEventListener('click', function () {
+    var dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
+  });
+
+  // mobile navigation
+  var side = document.getElementById('side'), menuBtn = document.getElementById('menu-btn');
+  menuBtn.addEventListener('click', function () {
+    var open = side.classList.toggle('open'); menuBtn.setAttribute('aria-expanded', String(open));
+  });
+  side.addEventListener('click', function (e) { if (e.target.tagName === 'A') side.classList.remove('open'); });
+
+  // highlight the section in view
+  var links = Array.prototype.slice.call(side.querySelectorAll('a'));
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (!en.isIntersecting) return;
+      links.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + en.target.id); });
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  document.querySelectorAll('main section[id]').forEach(function (s) { obs.observe(s); });
+</script>
+</body>
+</html>

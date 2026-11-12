@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -15,13 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 import com.polygis.common.ApiException;
 import com.polygis.common.Hashing;
 import com.polygis.config.AppProperties;
+import com.polygis.config.JwtConfig;
+import com.polygis.tenancy.TenantContext;
 import com.polygis.tenancy.TenantInfo;
 import com.polygis.user.User;
 
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Access tokens: short-lived HS256 JWTs carrying tenant, roles and permissions (stateless authorization).
+ * Access tokens: short-lived JWTs (HS256 or RS256, see JwtConfig) carrying tenant, roles and permissions (stateless authorization).
  * Refresh tokens: opaque, hashed in the tenant schema, rotated on every use with reuse detection.
  */
 @Slf4j
@@ -31,12 +32,22 @@ public class TokenService {
     private final JwtEncoder encoder;
     private final RefreshTokenRepository refreshTokens;
     private final AppProperties.Security.Jwt props;
+    private final JwtConfig.Signing signing;
+    private final com.polygis.user.UserRepository users;
+    private final AccessTokenRevocation revocation;
 
-    public TokenService(JwtEncoder encoder, RefreshTokenRepository refreshTokens, AppProperties props) {
+    public TokenService(JwtEncoder encoder, RefreshTokenRepository refreshTokens, AppProperties props,
+                        JwtConfig.Signing signing, com.polygis.user.UserRepository users,
+                        AccessTokenRevocation revocation) {
+        this.users = users;
+        this.revocation = revocation;
+        this.signing = signing;
         this.encoder = encoder;
         this.refreshTokens = refreshTokens;
         this.props = props.security().jwt();
     }
+
+    public static final java.time.Duration IMPERSONATION_TTL = java.time.Duration.ofMinutes(30);
 
     public record IssuedTokens(String accessToken, long expiresIn, String refreshToken) {
     }
@@ -51,22 +62,33 @@ public class TokenService {
     }
 
     public String accessToken(User user, TenantInfo tenant) {
+        return accessToken(user, tenant, null, props.accessTokenTtl());
+    }
+
+    /** Access token for a super-admin acting as {@code user}: carries {@code act} and has no refresh token. */
+    public String impersonationToken(User user, TenantInfo tenant, String actorEmail) {
+        return accessToken(user, tenant, actorEmail, IMPERSONATION_TTL);
+    }
+
+    private String accessToken(User user, TenantInfo tenant, String actorEmail, java.time.Duration ttl) {
         Instant now = Instant.now();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
                 .issuer(props.issuer())
                 .subject(user.getId().toString())
                 .issuedAt(now)
-                .expiresAt(now.plus(props.accessTokenTtl()))
+                .expiresAt(now.plus(ttl))
                 .id(UUID.randomUUID().toString())
                 .claim(JwtClaims.TOKEN_TYPE, JwtClaims.ACCESS)
                 .claim(JwtClaims.TENANT, tenant.slug())
                 .claim(JwtClaims.EMAIL, user.getEmail())
                 .claim(JwtClaims.NAME, user.displayName())
                 .claim(JwtClaims.ROLES, List.copyOf(user.roleNames()))
-                .claim(JwtClaims.PERMISSIONS, List.copyOf(user.permissionCodes()))
-                .build();
-        JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();
-        return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+                .claim(JwtClaims.PERMISSIONS, List.copyOf(user.permissionCodes()));
+        if (actorEmail != null) builder.claim(JwtClaims.ACTOR, actorEmail);
+        JwtClaimsSet claims = builder.build();
+        JwsHeader.Builder header = JwsHeader.with(signing.algorithm()).type("JWT");
+        if (signing.keyId() != null) header.keyId(signing.keyId());
+        return encoder.encode(JwtEncoderParameters.from(header.build(), claims)).getTokenValue();
     }
 
     /** Rotates a refresh token. Presenting an already-rotated token revokes the whole family (theft signal). */
@@ -83,9 +105,14 @@ public class TokenService {
         if (!current.isUsable()) {
             throw ApiException.unauthorized("refresh_expired", "Refresh token expired");
         }
+        // Atomic claim: of two concurrent refreshes with the same token exactly one wins; the loser is treated
+        // like a replay, which also kills the winner's family (a legitimate client never refreshes twice at once).
+        if (refreshTokens.markRotated(current.getId(), Instant.now()) == 0) {
+            refreshTokens.revokeFamily(current.getFamilyId(), Instant.now());
+            throw ApiException.unauthorized("refresh_reused", "Refresh token reuse detected");
+        }
         NewRefresh next = newRefreshToken(current.getUserId(), current.getFamilyId(), client);
-        current.setRevokedAt(Instant.now());
-        current.setReplacedBy(next.id);
+        refreshTokens.setReplacedBy(current.getId(), next.id);
         return new RotatedToken(current.getUserId(), next.raw);
     }
 
@@ -99,8 +126,22 @@ public class TokenService {
     }
 
     @Transactional
+    /** Signs the user out everywhere: refresh tokens revoked, access tokens refused from now on. */
     public void revokeAll(UUID userId) {
         refreshTokens.revokeAllForUser(userId, Instant.now());
+        invalidateAccessTokens(userId);
+    }
+
+    /** Forces clients to fetch a new access token (e.g. after a role change) without signing them out. */
+    public void invalidateAccessTokens(UUID userId) {
+        users.invalidateAccessTokens(userId);
+        revocation.evict(TenantContext.require().slug(), userId);
+    }
+
+    public void invalidateAccessTokensForRole(UUID roleId) {
+        var affected = users.userIdsWithRole(roleId);
+        users.invalidateAccessTokensForRole(roleId);
+        affected.forEach(id -> revocation.evict(TenantContext.require().slug(), id));
     }
 
     private record NewRefresh(UUID id, String raw) {

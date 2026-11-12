@@ -3,6 +3,7 @@ package com.polygis.tenancy;
 import javax.sql.DataSource;
 
 import org.hibernate.cfg.AvailableSettings;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernatePropertiesCustomizer;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -25,8 +26,9 @@ import com.polygis.config.AppProperties;
 public class TenancyConfig {
 
     @Bean
-    TenantSchemaMigrator tenantSchemaMigrator(DataSource dataSource, AppProperties props) {
-        TenantSchemaMigrator migrator = new TenantSchemaMigrator(dataSource, props);
+    TenantSchemaMigrator tenantSchemaMigrator(DataSource dataSource, AppProperties props,
+                                              @Value("${app.tenancy.migration-parallelism:4}") int parallelism) {
+        TenantSchemaMigrator migrator = new TenantSchemaMigrator(dataSource, props, parallelism);
         migrator.migrateAll();
         return migrator;
     }
