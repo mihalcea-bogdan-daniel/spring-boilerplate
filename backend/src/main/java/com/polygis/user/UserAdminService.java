@@ -29,11 +29,12 @@ public class UserAdminService {
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokens;
     private final MailService mail;
+    private final UserIdentityRepository identities;
     private final AppProperties props;
 
     public UserAdminService(UserRepository users, RoleRepository roles, PermissionRepository permissions,
                             PasswordEncoder passwordEncoder, TokenService tokens, MailService mail,
-                            AppProperties props) {
+                            AppProperties props, UserIdentityRepository identities) {
         this.users = users;
         this.roles = roles;
         this.permissions = permissions;
@@ -41,6 +42,7 @@ public class UserAdminService {
         this.tokens = tokens;
         this.mail = mail;
         this.props = props;
+        this.identities = identities;
     }
 
     // ------------------------------------------------------------- users
@@ -111,9 +113,31 @@ public class UserAdminService {
         return UserDto.from(u);
     }
 
+    /**
+     * Soft delete: the row stays for audit trails, personal data is blanked, sessions and social links are
+     * removed and the e-mail address becomes available again.
+     */
     @Transactional
-    public void delete(UUID id) {
-        users.delete(find(id));
+    public void delete(UUID id, UUID actingUserId) {
+        if (id.equals(actingUserId) && TenantContext.require().slug().equals(actingTenant())) {
+            throw ApiException.badRequest("self_delete", "You cannot delete your own account");
+        }
+        User u = find(id);
+        tokens.revokeAll(u.getId());
+        identities.deleteByUser(u);
+        u.setStatus(UserStatus.DISABLED);
+        u.setPasswordHash(null);
+        u.setFirstName(null);
+        u.setLastName(null);
+        u.getRoles().clear();
+        u.setDeletedAt(java.time.Instant.now());
+    }
+
+    /** Home tenant of the caller (differs from the current tenant when a super-admin uses X-Tenant-ID). */
+    private static String actingTenant() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return auth instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken jwt
+                ? jwt.getToken().getClaimAsString(com.polygis.auth.JwtClaims.TENANT) : null;
     }
 
     // ------------------------------------------------------------- roles

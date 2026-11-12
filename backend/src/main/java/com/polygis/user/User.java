@@ -6,12 +6,16 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+/** Soft-deleted rows ({@code deleted_at} set) are invisible to every query through {@code @SQLRestriction}. */
 @Entity
 @Table(name = "users")
+@SQLRestriction("deleted_at is null")
 @Getter
 @Setter
 public class User {
@@ -53,6 +57,9 @@ public class User {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles",

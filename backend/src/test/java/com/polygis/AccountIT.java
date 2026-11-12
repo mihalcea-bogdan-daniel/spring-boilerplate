@@ -69,4 +69,29 @@ class AccountIT extends IntegrationTestBase {
                         .with(host(host)).header("Authorization", bearer(adminToken)))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void deletingAUserIsSoftAndFreesTheEmail() throws Exception {
+        String admin = provisionTenant("acct-del");
+        String host = hostOf("acct-del");
+        var adminSession = otpLogin(host, admin);
+        String adminToken = accessToken(adminSession);
+        String adminId = body(adminSession).at("/user/id").asText();
+
+        var body = Map.of("email", "gone@acct-del.test", "password", "Passw0rd-12345");
+        String id = body(mvc.perform(jsonPost("/api/admin/users", body).with(host(host))
+                .header("Authorization", bearer(adminToken))).andExpect(status().isCreated()).andReturn())
+                .get("id").asText();
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/admin/users/" + adminId)
+                        .with(host(host)).header("Authorization", bearer(adminToken)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("self_delete"));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/admin/users/" + id)
+                .with(host(host)).header("Authorization", bearer(adminToken))).andExpect(status().isNoContent());
+
+        mvc.perform(jsonPost("/api/auth/login", body).with(host(host))).andExpect(status().isUnauthorized());
+        // the address can be used for a brand new account
+        mvc.perform(jsonPost("/api/admin/users", body).with(host(host)).header("Authorization", bearer(adminToken)))
+                .andExpect(status().isCreated());
+    }
 }
