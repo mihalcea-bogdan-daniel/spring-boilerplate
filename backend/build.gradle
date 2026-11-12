@@ -74,6 +74,11 @@ tasks.withType(JavaCompile).configureEach {
     options.compilerArgs << '-parameters'
 }
 
+// `./gradlew bootRun` is for local development: use the dev profile unless told otherwise
+tasks.named('bootRun') {
+    systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'dev')
+}
+
 tasks.named('test') {
     useJUnitPlatform()
 }

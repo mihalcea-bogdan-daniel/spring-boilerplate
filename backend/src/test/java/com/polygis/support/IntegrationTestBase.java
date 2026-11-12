@@ -17,6 +17,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -34,9 +35,11 @@ import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 
 /**
  * Boots the whole application against a real (embedded) PostgreSQL. One database for the JVM; tests use unique
- * tenant slugs so they do not interfere. Outgoing mail is mocked so tests can read OTP codes.
+ * tenant slugs so they do not interfere. Properties sit in @TestPropertySource so subclasses may redeclare
+ * {@code @SpringBootTest} (e.g. with a real port) without losing them. Outgoing mail is mocked so tests can read OTP codes.
  */
-@SpringBootTest(properties = {
+@SpringBootTest
+@TestPropertySource(properties = {
         "app.security.jwt.secret=test-secret-test-secret-test-secret-test-secret",
         "app.bootstrap.super-admin-email=root@admin.example.com",
         "app.bootstrap.super-admin-password=SuperSecret123",
