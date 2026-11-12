@@ -1,0 +1,164 @@
+package com.polygis.config;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AnyRequestMatcher;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import com.polygis.auth.JwtClaims;
+import com.polygis.auth.OtpService;
+import com.polygis.auth.oauth2.*;
+import com.polygis.tenancy.TenantAccessFilter;
+import com.polygis.tenancy.TenantRegistry;
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
+
+/**
+ * Filter order for an API call:
+ * <pre>
+ * ForwardedHeaderFilter -> TenantResolutionFilter (host) -> [Spring Security:
+ *    CorsFilter -> OAuth2 login filters -> BearerTokenAuthenticationFilter -> TenantAccessFilter -> authz]
+ * </pre>
+ */
+@Configuration
+@EnableMethodSecurity
+public class SecurityConfig {
+
+    private final AppProperties props;
+
+    public SecurityConfig(AppProperties props) {
+        this.props = props;
+    }
+
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                            ClientRegistrationRepository clients,
+                                            TenantRegistry tenantRegistry,
+                                            OAuth2UserProvisioner provisioner,
+                                            OtpService otp) throws Exception {
+        http
+                .csrf(AbstractHttpConfigurer::disable) // bearer tokens; refresh cookie is SameSite=Strict + path-scoped
+                .cors(c -> {})
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(a -> a
+                        .requestMatchers("/api/auth/me").authenticated()
+                        .requestMatchers("/api/auth/**", "/api/oauth2/**", "/api/login/oauth2/**").permitAll()
+                        .requestMatchers("/api/docs/**", "/actuator/health/**", "/error").permitAll()
+                        // Thymeleaf pages + static assets
+                        .requestMatchers(HttpMethod.GET, "/", "/status", "/oauth2/error", "/css/**", "/images/**",
+                                "/favicon.ico").permitAll()
+                        .requestMatchers("/api/platform/**").hasRole("SUPER_ADMIN")
+                        .anyRequest().authenticated())
+                .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(jwtAuthenticationConverter())))
+                .oauth2Login(o -> o
+                        .authorizationEndpoint(e -> e
+                                .baseUri(TenantAwareAuthorizationRequestResolver.BASE_URI)
+                                .authorizationRequestResolver(new TenantAwareAuthorizationRequestResolver(clients))
+                                .authorizationRequestRepository(
+                                        new HttpCookieOAuth2AuthorizationRequestRepository(props)))
+                        .redirectionEndpoint(r -> r.baseUri("/api/login/oauth2/code/*"))
+                        .successHandler(new OAuth2LoginSuccessHandler(tenantRegistry, provisioner, otp, props))
+                        .failureHandler(new OAuth2LoginFailureHandler(props)))
+                .exceptionHandling(e -> e
+                        // API clients get 401/403 JSON, never a redirect to a login page
+                        .defaultAuthenticationEntryPointFor(new BearerTokenAuthenticationEntryPoint(),
+                                AnyRequestMatcher.INSTANCE)
+                        .accessDeniedHandler(new BearerTokenAccessDeniedHandler()))
+                .addFilterAfter(new TenantAccessFilter(tenantRegistry, props), BearerTokenAuthenticationFilter.class);
+        return http.build();
+    }
+
+    // ------------------------------------------------------------------ JWT
+
+    private SecretKey jwtKey() {
+        String secret = props.security().jwt().secret();
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("app.security.jwt.secret (JWT_SECRET) must be at least 32 bytes");
+        }
+        return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+    }
+
+    @Bean
+    JwtEncoder jwtEncoder() {
+        return new NimbusJwtEncoder(new ImmutableSecret<>(jwtKey()));
+    }
+
+    @Bean
+    JwtDecoder jwtDecoder() {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtKey()).macAlgorithm(MacAlgorithm.HS256).build();
+        OAuth2TokenValidator<Jwt> accessOnly = jwt -> JwtClaims.ACCESS.equals(jwt.getClaimAsString(JwtClaims.TOKEN_TYPE))
+                && jwt.getClaimAsString(JwtClaims.TENANT) != null
+                ? OAuth2TokenValidatorResult.success()
+                : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Not an access token", null));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(props.security().jwt().issuer()), accessOnly));
+        return decoder;
+    }
+
+    /** roles -> ROLE_*, perms -> plain authorities (use hasAuthority('user:read') in @PreAuthorize). */
+    @Bean
+    JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            Collection<GrantedAuthority> authorities = new ArrayList<>();
+            List<String> roles = jwt.getClaimAsStringList(JwtClaims.ROLES);
+            List<String> perms = jwt.getClaimAsStringList(JwtClaims.PERMISSIONS);
+            if (roles != null) roles.forEach(r -> authorities.add(new SimpleGrantedAuthority("ROLE_" + r)));
+            if (perms != null) perms.forEach(p -> authorities.add(new SimpleGrantedAuthority(p)));
+            return authorities;
+        });
+        return converter;
+    }
+
+    // ------------------------------------------------------------------ misc
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(props.security().password().bcryptStrength());
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration cfg = new CorsConfiguration();
+        cfg.setAllowedOriginPatterns(props.cors().allowedOriginPatterns());
+        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", props.tenancy().tenantHeader()));
+        cfg.setAllowCredentials(true);
+        cfg.setMaxAge(3600L);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", cfg);
+        return source;
+    }
+}

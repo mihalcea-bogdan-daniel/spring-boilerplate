@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${productName} + ' API'">API</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<main class="card">
+    <h1 th:text="${productName}">Product</h1>
+    <p>API is running.</p>
+    <p th:if="${tenant}">Tenant: <code th:text="${tenant}">acme</code></p>
+    <p th:unless="${tenant}">No tenant resolved for this host.</p>
+    <ul>
+        <li><a th:href="@{/api/docs/ui}">OpenAPI / Swagger UI</a></li>
+        <li><a th:href="@{/actuator/health}">Health</a></li>
+    </ul>
+</main>
+</body>
+</html>

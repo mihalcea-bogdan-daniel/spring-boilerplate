@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign-in failed</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<main class="card">
+    <h1>Sign-in failed</h1>
+    <p>We could not complete the social sign-in (<code th:text="${reason}">state</code>).
+        The sign-in session may have expired. Go back to your workspace and try again.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<script setup lang="ts">
+/** Landing page after Spring's OAuth2 success handler: /auth/callback?code=...&redirect=/... */
+definePageMeta({ layout: 'auth', public: true })
+
+const auth = useAuthStore()
+const route = useRoute()
+const error = ref<string | null>(typeof route.query.error === 'string' ? route.query.error : null)
+
+onMounted(async () => {
+  if (error.value) return
+  const code = route.query.code
+  if (typeof code !== 'string') {
+    error.value = 'missing_code'
+    return
+  }
+  try {
+    await auth.exchangeOAuth2Code(code)
+    const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
+      && !route.query.redirect.startsWith('//')
+      ? route.query.redirect
+      : '/'
+    await navigateTo(redirect, { replace: true })
+  } catch (e) {
+    error.value = problemOf(e).code ?? 'exchange_failed'
+  }
+})
+</script>
+
+<template>
+  <Card>
+    <template #content>
+      <div v-if="!error" class="stack" style="align-items: center">
+        <ProgressSpinner style="width: 3rem; height: 3rem" />
+        <p>Completing sign-in…</p>
+      </div>
+      <div v-else class="stack">
+        <Message severity="error" :closable="false">Social sign-in failed: {{ error }}</Message>
+        <Button as="router-link" to="/auth/login" label="Back to sign in" fluid />
+      </div>
+    </template>
+  </Card>
+</template>

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body style="margin:0;">
+<table th:replace="~{fragments/email-layout :: layout(~{::td.content})}">
+    <tr>
+        <td class="content" style="font-size:15px;line-height:1.6;">
+            <p>Hi <span th:text="${name}">there</span>,</p>
+            <p th:switch="${purpose}">
+                <span th:case="'EMAIL_VERIFICATION'">Use this code to verify your e-mail address:</span>
+                <span th:case="'LOGIN'">Use this code to sign in:</span>
+                <span th:case="'PASSWORD_RESET'">Use this code to reset your password:</span>
+                <span th:case="*">Your code:</span>
+            </p>
+            <p style="font-size:32px;letter-spacing:8px;font-weight:bold;text-align:center;margin:24px 0;"
+               th:text="${code}">123456</p>
+            <p>The code expires in <span th:text="${ttlMinutes}">10</span> minutes and works on
+                <strong th:text="${tenantHost}">acme.example.com</strong> only.</p>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

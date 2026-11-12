@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body style="margin:0;">
+<table th:replace="~{fragments/email-layout :: layout(~{::td.content})}">
+    <tr>
+        <td class="content" style="font-size:15px;line-height:1.6;">
+            <p>Your workspace <strong th:text="${tenantName}">Acme</strong> has been created and you are its
+                administrator.</p>
+            <p style="text-align:center;margin:24px 0;">
+                <a th:href="|https://${tenantHost}/auth/otp|"
+                   style="background:#10b981;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
+                    Sign in to <span th:text="${tenantHost}">acme.example.com</span></a>
+            </p>
+            <p>Sign in with an e-mail code or a social account linked to this address, then set a password from
+                your profile.</p>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

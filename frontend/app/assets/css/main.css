@@ -1,0 +1,41 @@
+:root {
+  --app-sidebar-width: 16rem;
+  --app-topbar-height: 3.75rem;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+html, body { margin: 0; background: var(--p-surface-50); color: var(--p-text-color); }
+.app-dark body, html.app-dark { background: var(--p-surface-950); }
+
+.center-screen { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
+.auth-card { width: 100%; max-width: 26rem; }
+.stack { display: flex; flex-direction: column; gap: 1rem; }
+.row { display: flex; gap: .75rem; align-items: center; }
+.row-between { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: .4rem; }
+.field label { font-weight: 600; font-size: .875rem; }
+.field small.error { color: var(--p-red-500); }
+.w-full { width: 100%; }
+.muted { color: var(--p-text-muted-color); font-size: .875rem; }
+.page-title { margin: 0 0 1rem; font-size: 1.5rem; font-weight: 700; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+
+/* dashboard shell */
+.shell { display: grid; grid-template-columns: var(--app-sidebar-width) 1fr; min-height: 100vh; }
+.shell-sidebar { background: var(--p-content-background); border-right: 1px solid var(--p-content-border-color);
+  padding: 1rem .75rem; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.shell-brand { font-weight: 800; font-size: 1.15rem; padding: .25rem .75rem 1rem; display: flex; gap: .5rem; align-items: center; }
+.shell-main { display: flex; flex-direction: column; min-width: 0; }
+.shell-topbar { height: var(--app-topbar-height); display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem; background: var(--p-content-background); border-bottom: 1px solid var(--p-content-border-color);
+  position: sticky; top: 0; z-index: 10; gap: 1rem; }
+.shell-content { padding: 1.5rem; }
+.shell-sidebar .p-menu { border: 0; background: transparent; width: 100%; }
+
+@media (max-width: 960px) {
+  .shell { grid-template-columns: 1fr; }
+  .shell-sidebar { position: fixed; inset: 0 auto 0 0; width: var(--app-sidebar-width); z-index: 20;
+    transform: translateX(-100%); transition: transform .2s; }
+  .shell-sidebar.open { transform: none; }
+}
+@media (min-width: 961px) { .only-mobile { display: none !important; } }

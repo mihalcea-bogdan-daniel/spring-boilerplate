@@ -1,0 +1,160 @@
+spring:
+  application:
+    name: boilerplate-backend
+  profiles:
+    default: dev
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/boilerplate}
+    username: ${DB_USER:boilerplate}
+    password: ${DB_PASSWORD:boilerplate}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      # every connection is re-pointed per tenant by SchemaMultiTenantConnectionProvider
+      connection-init-sql: SET search_path TO public
+
+  jpa:
+    open-in-view: false            # tenant is resolved per request; never leak sessions into views
+    hibernate:
+      ddl-auto: none               # schema is owned by Flyway (public + per-tenant)
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+        default_batch_fetch_size: 50
+
+  flyway:
+    enabled: false                 # we drive Flyway ourselves: see TenantSchemaMigrator
+
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    cache: true
+
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USER:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:change-me}
+            client-secret: ${GOOGLE_CLIENT_SECRET:change-me}
+            scope: openid,email,profile
+            redirect-uri: ${OAUTH2_REDIRECT_BASE:{baseUrl}}/api/login/oauth2/code/{registrationId}
+          github:
+            client-id: ${GITHUB_CLIENT_ID:change-me}
+            client-secret: ${GITHUB_CLIENT_SECRET:change-me}
+            scope: read:user,user:email
+            redirect-uri: ${OAUTH2_REDIRECT_BASE:{baseUrl}}/api/login/oauth2/code/{registrationId}
+
+server:
+  port: ${PORT:8080}
+  # Trust X-Forwarded-* from nginx/apache so request.getServerName() is the public tenant host
+  forward-headers-strategy: framework
+  error:
+    include-message: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /api/docs
+  swagger-ui:
+    path: /api/docs/ui
+
+app:
+  tenancy:
+    # tenant = <slug>.<base-domain>  (e.g. acme.example.com)  OR a custom domain stored on the tenant row
+    base-domain: ${APP_BASE_DOMAIN:example.com}
+    platform-tenant: platform
+    platform-domain: ${APP_PLATFORM_DOMAIN:admin.example.com}
+    tenant-header: X-Tenant-ID
+    # Only for local development without wildcard DNS: lets anonymous callers pick a tenant via header
+    dev-header-fallback: false
+    reserved-slugs: [www, api, admin, app, mail, static, public, platform]
+
+  security:
+    jwt:
+      issuer: ${JWT_ISSUER:boilerplate}
+      # >= 32 bytes. Generate with: openssl rand -base64 48
+      secret: ${JWT_SECRET:}
+      access-token-ttl: 15m
+      refresh-token-ttl: 14d
+    refresh-cookie:
+      name: refresh_token
+      path: /api/auth
+      secure: true
+      same-site: Strict
+    password:
+      bcrypt-strength: 12
+      max-failed-attempts: 5
+      lockout-duration: 15m
+    otp:
+      length: 6
+      ttl: 10m
+      max-attempts: 5
+      resend-cooldown: 60s
+    oauth2:
+      auto-register: true
+      # Where the browser lands after social login; {host} is replaced by the tenant host
+      frontend-callback: https://{host}/auth/callback
+      # Set to ".example.com" when using one central OAuth2 callback host (see README)
+      cookie-domain: ${OAUTH2_COOKIE_DOMAIN:}
+
+  bootstrap:
+    super-admin-email: ${SUPER_ADMIN_EMAIL:}
+    super-admin-password: ${SUPER_ADMIN_PASSWORD:}
+
+  mail:
+    from: ${MAIL_FROM:no-reply@example.com}
+    product-name: ${APP_PRODUCT_NAME:Boilerplate}
+
+  cors:
+    # Only needed if the SPA is NOT served from the same origin (nginx makes it same-origin)
+    allowed-origin-patterns: ${CORS_ORIGINS:https://*.example.com}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  thymeleaf:
+    cache: false
+
+app:
+  tenancy:
+    base-domain: localhost         # acme.localhost:3000 resolves to 127.0.0.1 in modern browsers
+    platform-domain: admin.localhost
+    dev-header-fallback: true
+  security:
+    jwt:
+      secret: ${JWT_SECRET:dev-only-secret-change-me-dev-only-secret-change-me}
+    refresh-cookie:
+      secure: false
+    oauth2:
+      frontend-callback: http://{host}:3000/auth/callback
+  bootstrap:
+    super-admin-email: ${SUPER_ADMIN_EMAIL:superadmin@admin.localhost}
+    super-admin-password: ${SUPER_ADMIN_PASSWORD:ChangeMe!123}
+  cors:
+    allowed-origin-patterns: http://*.localhost:3000,http://localhost:3000
+
+logging:
+  level:
+    com.polygis: DEBUG

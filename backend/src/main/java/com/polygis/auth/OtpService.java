@@ -1,0 +1,92 @@
+package com.polygis.auth;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.polygis.common.ApiException;
+import com.polygis.common.Hashing;
+import com.polygis.config.AppProperties;
+
+/**
+ * Short numeric codes sent by e-mail (verification, passwordless login, password reset) and opaque single-use
+ * codes (OAuth2 -> SPA exchange). Codes are stored as SHA-256(userId:code); attempts are capped and resends
+ * are throttled.
+ */
+@Service
+public class OtpService {
+
+    private final OneTimeTokenRepository repository;
+    private final AppProperties.Security.Otp props;
+
+    public OtpService(OneTimeTokenRepository repository, AppProperties props) {
+        this.repository = repository;
+        this.props = props.security().otp();
+    }
+
+    @Transactional
+    public String issueNumeric(UUID userId, OtpPurpose purpose) {
+        repository.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(userId, purpose)
+                .filter(t -> t.getCreatedAt().plus(props.resendCooldown()).isAfter(Instant.now()))
+                .ifPresent(t -> {
+                    throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "otp_cooldown",
+                            "Please wait before requesting another code");
+                });
+        repository.invalidateActive(userId, purpose, Instant.now());
+        String code = Hashing.numericCode(props.length());
+        save(userId, purpose, hash(userId, code), props.ttl());
+        return code;
+    }
+
+    /** Validates a numeric code; failures count towards the attempt limit even if the caller's tx rolls back. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = ApiException.class)
+    public void verifyNumeric(UUID userId, OtpPurpose purpose, String code) {
+        OneTimeToken token = repository.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(userId, purpose)
+                .filter(OneTimeToken::isActive)
+                .orElseThrow(() -> ApiException.badRequest("otp_invalid", "Invalid or expired code"));
+        token.setAttempts(token.getAttempts() + 1);
+        if (token.getAttempts() > props.maxAttempts()) {
+            token.setConsumedAt(Instant.now());
+            throw ApiException.badRequest("otp_locked", "Too many attempts, request a new code");
+        }
+        if (code == null || !Hashing.constantTimeEquals(token.getCodeHash(), hash(userId, code.trim()))) {
+            throw ApiException.badRequest("otp_invalid", "Invalid or expired code");
+        }
+        token.setConsumedAt(Instant.now());
+    }
+
+    /** Opaque high-entropy code used to hand tokens to the SPA after an OAuth2 redirect. */
+    @Transactional
+    public String issueExchangeCode(UUID userId) {
+        String code = Hashing.randomToken(32);
+        save(userId, OtpPurpose.OAUTH2_EXCHANGE, Hashing.sha256(code), Duration.ofSeconds(60));
+        return code;
+    }
+
+    @Transactional
+    public UUID consumeExchangeCode(String code) {
+        OneTimeToken token = repository.findByCodeHashAndPurpose(Hashing.sha256(code), OtpPurpose.OAUTH2_EXCHANGE)
+                .filter(OneTimeToken::isActive)
+                .orElseThrow(() -> ApiException.badRequest("code_invalid", "Invalid or expired code"));
+        token.setConsumedAt(Instant.now());
+        return token.getUserId();
+    }
+
+    private void save(UUID userId, OtpPurpose purpose, String hash, Duration ttl) {
+        OneTimeToken t = new OneTimeToken();
+        t.setUserId(userId);
+        t.setPurpose(purpose);
+        t.setCodeHash(hash);
+        t.setExpiresAt(Instant.now().plus(ttl));
+        repository.save(t);
+    }
+
+    private static String hash(UUID userId, String code) {
+        return Hashing.sha256(userId + ":" + code);
+    }
+}

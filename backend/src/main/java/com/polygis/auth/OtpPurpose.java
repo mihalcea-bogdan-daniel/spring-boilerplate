@@ -1,0 +1,3 @@
+package com.polygis.auth;
+
+public enum OtpPurpose { EMAIL_VERIFICATION, LOGIN, PASSWORD_RESET, OAUTH2_EXCHANGE }
