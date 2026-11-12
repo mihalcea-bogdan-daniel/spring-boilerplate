@@ -38,7 +38,7 @@ public class UserAdminService {
 
     @Transactional(readOnly = true)
     public PageResponse<UserDto> search(String q, Pageable pageable) {
-        return PageResponse.of(users.search(blankToNull(q), pageable), UserDto::from);
+        return PageResponse.of(users.search(q == null ? "" : q.trim(), pageable), UserDto::from);
     }
 
     @Transactional(readOnly = true)
@@ -136,9 +136,5 @@ public class UserAdminService {
         List<Permission> found = permissions.findByCodeIn(codes);
         if (found.size() != codes.size()) throw ApiException.badRequest("unknown_permission", "Unknown permission");
         return new HashSet<>(found);
-    }
-
-    private static String blankToNull(String s) {
-        return s == null || s.isBlank() ? null : s.trim();
     }
 }

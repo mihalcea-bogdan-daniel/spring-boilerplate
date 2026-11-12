@@ -49,7 +49,7 @@ public class TenantProvisioningService {
     }
 
     public PageResponse<TenantDto> search(String q, Pageable pageable) {
-        return PageResponse.of(tenants.search(q == null || q.isBlank() ? null : q.trim(), pageable), TenantDto::from);
+        return PageResponse.of(tenants.search(q == null ? "" : q.trim(), pageable), TenantDto::from);
     }
 
     public TenantDto provision(CreateTenantRequest req) {

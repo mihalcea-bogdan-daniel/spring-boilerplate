@@ -19,7 +19,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("""
             select u from User u
-            where :q is null
+            where :q = ''
                or lower(u.email) like lower(concat('%', :q, '%'))
                or lower(coalesce(u.firstName, '')) like lower(concat('%', :q, '%'))
                or lower(coalesce(u.lastName, '')) like lower(concat('%', :q, '%'))
