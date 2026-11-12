@@ -60,8 +60,13 @@ public class DemoDataSeeder implements ApplicationRunner {
             if (registry.findBySlug(slug).isEmpty()) {
                 String name = Character.toUpperCase(slug.charAt(0)) + slug.substring(1) + " Inc.";
                 // provisioning is a platform action (its audit entry lands in the platform schema)
-                TenantContext.runAs(registry.requireBySlug(platformTenant), () -> provisioning.provision(
-                        new CreateTenantRequest(slug, name, null, "owner@" + slug + ".test", "Olivia", "Owner")));
+                TenantContext.runAs(registry.requireBySlug(platformTenant), () -> {
+                    var tenant = provisioning.provision(
+                            new CreateTenantRequest(slug, name, null, "owner@" + slug + ".test", "Olivia", "Owner"));
+                    // demo tenants hold more users than the free plan allows
+                    provisioning.update(tenant.id(), new TenantDtos.UpdateTenantRequest(name, null,
+                            com.polygis.tenancy.TenantStatus.ACTIVE, "pro"));
+                });
             }
             TenantContext.runAs(registry.requireBySlug(slug), () -> {
                 createIfMissing("admin@" + slug + ".test", "Adam", "Admin", Role.TENANT_ADMIN);

@@ -36,6 +36,7 @@ class DemoDataSeederIT extends IntegrationTestBase {
 
         assertThat(jdbc.queryForObject("select count(*) from t_acme.users", Integer.class)).isEqualTo(6);
         assertThat(jdbc.queryForObject("select count(*) from t_globex.users", Integer.class)).isEqualTo(6);
+        assertThat(jdbc.queryForObject("select plan from public.tenants where slug = 'acme'", String.class)).isEqualTo("pro");
         login(hostOf("acme"), "admin@acme.test", DemoDataSeeder.PASSWORD);
         login(hostOf("globex"), "bob@globex.test", DemoDataSeeder.PASSWORD);
     }
