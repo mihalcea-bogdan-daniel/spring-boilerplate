@@ -167,7 +167,7 @@
       <div class="chips">
         <span class="chip">Spring Boot 3.5 · Java 17+</span><span class="chip">PostgreSQL 16</span>
         <span class="chip">Nuxt 4 · TypeScript</span><span class="chip">PrimeVue 4</span>
-        <span class="chip">Gradle</span><span class="chip">Installable PWA</span>
+        <span class="chip">Gradle</span><span class="chip">Installable PWA</span><span class="chip">English · Română</span>
       </div>
     </div>
 
@@ -294,10 +294,11 @@ docs/                    this site</pre></div>
         <li><strong>Migration</strong> in <code>backend/src/main/resources/db/migration/tenant/</code>: the table, plus the new permissions (<code>project:read</code>, <code>project:write</code>).</li>
         <li><strong>Entity, repository, service, controller</strong> under <code>com.polygis.&lt;module&gt;</code>; guard endpoints with <code>@PreAuthorize("hasAuthority('project:read')")</code>.</li>
         <li><strong>Integration test</strong> extending <code>IntegrationTestBase</code> (embedded PostgreSQL; no Docker needed).</li>
-        <li><strong>Page</strong> in <code>frontend/app/pages/admin/</code>, following <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/docs/adding-a-page.md">the page recipe</a>: <code>useApi()</code> + <code>&lt;LoadError&gt;</code> to show data, <code>useRequest()</code> for buttons, <code>definePageMeta({ permission })</code>.</li>
+        <li><strong>Texts</strong> in <code>frontend/i18n/locales/en.json</code> and the same keys, translated, in every other locale file. Pages never contain literal text; lint fails if they do (<a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/docs/i18n.md">i18n guide</a>).</li>
+        <li><strong>Page</strong> in <code>frontend/app/pages/admin/</code>, following <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/docs/adding-a-page.md">the page recipe</a>: <code>useApi()</code> + <code>&lt;LoadError&gt;</code> to show data, <code>useRequest()</code> for buttons, <code>t('…')</code> for every text, <code>definePageMeta({ permission })</code>.</li>
         <li><strong>Menu entry</strong> in <code>frontend/app/layouts/default.vue</code>.</li>
       </ol>
-      <div class="note">Coding agents: read <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/AGENTS.md"><code>frontend/AGENTS.md</code></a> first. It lists the components to use, how errors become toasts, and the files not to touch.</div>
+      <div class="note">Coding agents: read <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/AGENTS.md"><code>frontend/AGENTS.md</code></a> first. It lists the components to use, how errors become toasts, the i18n rule, and the files not to touch.</div>
       <h3>Keep API types in sync</h3>
       <div class="code"><pre>cd backend && ./gradlew test        <span class="c"># writes build/openapi.json</span>
 cd ../frontend && npm run gen:api   <span class="c"># regenerates app/types/api.generated.ts</span></pre></div>

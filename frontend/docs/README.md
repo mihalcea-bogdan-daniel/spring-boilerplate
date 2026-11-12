@@ -6,6 +6,7 @@ For people and coding agents working in `frontend/`. The short, enforceable vers
 | --- | --- |
 | [Data and errors](data-and-errors.md) | load a list, save a form, or wonder which toast colour to show |
 | [Adding a page](adding-a-page.md) | add a new admin screen end to end |
+| [Translations (i18n)](i18n.md) | write any text a user will see, add a key or a language |
 | [Theming and PWA](theming-and-pwa.md) | touch colours, the logo, the manifest or offline behaviour |
 
 ## How the app is put together
@@ -23,9 +24,15 @@ app/
   components/LoadError    error state with retry for useApi
   utils/feedback.ts       HTTP status → toast severity (single source of truth)
   utils/problem.ts        problemOf(error) → RFC 7807 body
+  components/LocaleSwitcher  language picker (cookie i18n_locale)
+  composables/useLocale   <html lang> + PrimeVue texts follow the locale
   theme/                  brand palette and PrimeVue preset
   stores/                 auth (session, permissions) and tenant (managed tenant)
   types/api.ts            DTOs shared with the backend
+i18n/
+  locales/en.json, ro.json  every UI string (en is the source of truth)
+  i18n.config.ts          date formats
+  primevue.ts             PrimeVue's built-in texts per locale
 ```
 
 ## Requests in one picture
@@ -36,6 +43,7 @@ page ──request()─────┼──► $api ──► /api/** (nginx) �
 store ──$api()───────┘     │
                            ├─ Authorization: Bearer <access token>
                            ├─ X-Tenant-ID (only when a super-admin manages another tenant)
+                           ├─ Accept-Language: <current locale>
                            └─ 401 → refresh once → replay, or go to /auth/login
 ```
 

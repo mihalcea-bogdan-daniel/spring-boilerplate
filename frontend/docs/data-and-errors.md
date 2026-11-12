@@ -25,10 +25,10 @@ const { data, pending, error, refresh } = useApi<PageResponse<ThingDto>>('/admin
 ```
 
 ```vue
-<LoadError :error="error" what="things" @retry="refresh()" />
+<LoadError :error="error" :what="t('things.what')" @retry="refresh()" />
 <DataTable v-if="!error" :value="data?.content ?? []" :loading="pending" lazy paginator
            :rows="size" :total-records="data?.totalElements ?? 0" @page="onPage" @sort="onSort">
-  <template #empty>No things yet.</template>
+  <template #empty>{{ t('things.empty') }}</template>
   …
 </DataTable>
 ```
@@ -44,13 +44,14 @@ Rules:
 ## Doing things: `useRequest()`
 
 ```ts
+const { t } = useI18n()
 const { request, pending, fieldErrors, notifyError } = useRequest()
 
 const res = await request<ThingDto>('/admin/things', {
   method: 'POST',
   body: form,
-  success: t => `${t.name} created`,   // string, function of the response, or false
-  error: 'Could not create the thing', // toast title; the server's detail goes underneath
+  success: x => t('things.created', { name: x.name }), // translated string, function of the response, or false
+  error: t('things.createFailed'),                     // toast title; the server's detail goes underneath
 })
 if (res.ok) { /* res.data is ThingDto */ } else { /* res.problem, res.status */ }
 ```
@@ -83,7 +84,8 @@ Decided in [`app/utils/feedback.ts`](../app/utils/feedback.ts); covered by `test
 | No response (offline, DNS) | `error` | Can't reach the server | |
 
 The idea: **warn = the user can fix it, error = we (or the network) broke**. Your `error:` option replaces
-only the title. Toast lifetimes grow with severity (3 s → 8 s).
+only the title. Default titles ("Saved", "Not allowed"…) are the `feedback.*` keys, so they follow the user's
+language too. Toast lifetimes grow with severity (3 s → 8 s).
 
 ### When to pass `success: false`
 

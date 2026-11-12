@@ -1,6 +1,7 @@
 # Frontend rules for agents
 
-Nuxt 4, Vue 3 `<script setup lang="ts">`, strict TypeScript, Pinia, PrimeVue 4 (Aura preset, auto-imported).
+Nuxt 4, Vue 3 `<script setup lang="ts">`, strict TypeScript, Pinia, PrimeVue 4 (Aura preset, auto-imported),
+@nuxtjs/i18n (English + Romanian).
 Longer explanations and copy-paste examples live in [`docs/`](docs/README.md). Read that before your first change.
 
 **Reference page:** [`app/pages/admin/users.vue`](app/pages/admin/users.vue). New admin pages copy its shape.
@@ -28,6 +29,12 @@ Longer explanations and copy-paste examples live in [`docs/`](docs/README.md). R
     unless the task is about auth or tenancy itself. Never send `X-Tenant-ID` yourself.
 11. **Destructive actions** go through `useConfirm().require({ … acceptProps: { severity: 'danger' } })`.
 12. **New sidebar entries** go in `layouts/default.vue` with `visible: auth.can('…')`.
+13. **Every user-facing string goes through i18n. No exceptions.** Labels, headings, placeholders, tooltips,
+    `aria-label`, `alt`, empty states, toast `success`/`error` summaries, confirm dialogs, menu items:
+    `t('screen.key')`, with the key added to **every** file in `i18n/locales/` (English first, then a real
+    translation, never English pasted into `ro.json`). Dates use `d(value, 'datetime')`, never
+    `toLocaleString()`. API enums use ``t(`status.${value}`)``. Lists built in `<script>` that contain text are
+    `computed`. Markup inside a sentence uses `<i18n-t>`, never `v-html`. Full guide: [`docs/i18n.md`](docs/i18n.md).
 
 ## Components
 
@@ -45,15 +52,18 @@ Longer explanations and copy-paste examples live in [`docs/`](docs/README.md). R
 | Confirmation | `useConfirm()` (the `ConfirmDialog` is mounted in `app.vue`) |
 | Feedback | `useRequest()`; `useToast()` only for local actions such as "Copied" |
 | Icons | PrimeIcons, `pi pi-*` |
+| Language picker | `LocaleSwitcher` (ours; already in both layouts) |
+| Text | `const { t, d } = useI18n()`; `<i18n-t>` for sentences containing markup |
 
 ## Smallest correct mutation
 
 ```ts
+const { t } = useI18n()
 const { request, pending, fieldErrors } = useRequest()
 
 async function save() {
   const res = await request<ThingDto>('/admin/things', {
-    method: 'POST', body: form, success: 'Thing created', error: 'Could not create the thing',
+    method: 'POST', body: form, success: t('things.created'), error: t('things.createFailed'),
   })
   if (!res.ok) return          // toast and fieldErrors are already handled
   dialog.value = false
@@ -62,9 +72,10 @@ async function save() {
 ```
 
 ```vue
-<InputText v-model="form.name" :invalid="!!fieldErrors.name" fluid />
+<label for="t-name">{{ t('common.name') }}</label>
+<InputText id="t-name" v-model="form.name" :invalid="!!fieldErrors.name" fluid />
 <small v-if="fieldErrors.name" class="error">{{ fieldErrors.name }}</small>
-<Button type="submit" label="Save" :loading="pending" />
+<Button type="submit" :label="t('common.save')" :loading="pending" />
 ```
 
 ## Before you finish
@@ -72,3 +83,6 @@ async function save() {
 ```bash
 npm run lint && npm run typecheck && npm test && npm run build
 ```
+
+Lint fails on hard-coded template text and on keys missing from a locale. It cannot see strings inside
+`<script>`: check your toasts, confirm dialogs and menu items by hand.
