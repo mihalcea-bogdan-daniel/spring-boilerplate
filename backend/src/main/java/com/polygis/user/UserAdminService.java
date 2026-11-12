@@ -127,7 +127,9 @@ public class UserAdminService {
             Set<Role> next = resolveRoles(req.roles());
             // SUPER_ADMIN is not managed through this API: keep it rather than silently stripping it
             u.getRoles().stream().filter(r -> Role.SUPER_ADMIN.equals(r.getName())).forEach(next::add);
+            boolean changed = !next.equals(u.getRoles());
             u.setRoles(next);
+            if (changed) tokens.invalidateAccessTokens(u.getId()); // new permissions apply on the next request
         }
         assertAdminRemains(adminsBefore);
         if (req.status() == UserStatus.DISABLED) tokens.revokeAll(u.getId());
@@ -202,6 +204,7 @@ public class UserAdminService {
         if (!r.isSystemRole()) r.setName(req.name());
         r.setDescription(req.description());
         r.setPermissions(resolvePermissions(req.permissions()));
+        tokens.invalidateAccessTokensForRole(r.getId());
         audit.record("role.updated", "role", r.getId(), r.getName() + " " + req.permissions());
         return RoleDto.from(r);
     }
@@ -210,6 +213,7 @@ public class UserAdminService {
     public void deleteRole(UUID id) {
         Role r = roles.findById(id).orElseThrow(() -> ApiException.notFound("Role"));
         if (r.isSystemRole()) throw ApiException.badRequest("system_role", "System roles cannot be deleted");
+        tokens.invalidateAccessTokensForRole(r.getId());
         audit.record("role.deleted", "role", r.getId(), r.getName());
         roles.delete(r);
     }

@@ -15,6 +15,7 @@ import com.polygis.common.ApiException;
 import com.polygis.common.Hashing;
 import com.polygis.config.AppProperties;
 import com.polygis.config.JwtConfig;
+import com.polygis.tenancy.TenantContext;
 import com.polygis.tenancy.TenantInfo;
 import com.polygis.user.User;
 
@@ -32,9 +33,14 @@ public class TokenService {
     private final RefreshTokenRepository refreshTokens;
     private final AppProperties.Security.Jwt props;
     private final JwtConfig.Signing signing;
+    private final com.polygis.user.UserRepository users;
+    private final AccessTokenRevocation revocation;
 
     public TokenService(JwtEncoder encoder, RefreshTokenRepository refreshTokens, AppProperties props,
-                        JwtConfig.Signing signing) {
+                        JwtConfig.Signing signing, com.polygis.user.UserRepository users,
+                        AccessTokenRevocation revocation) {
+        this.users = users;
+        this.revocation = revocation;
         this.signing = signing;
         this.encoder = encoder;
         this.refreshTokens = refreshTokens;
@@ -120,8 +126,22 @@ public class TokenService {
     }
 
     @Transactional
+    /** Signs the user out everywhere: refresh tokens revoked, access tokens refused from now on. */
     public void revokeAll(UUID userId) {
         refreshTokens.revokeAllForUser(userId, Instant.now());
+        invalidateAccessTokens(userId);
+    }
+
+    /** Forces clients to fetch a new access token (e.g. after a role change) without signing them out. */
+    public void invalidateAccessTokens(UUID userId) {
+        users.invalidateAccessTokens(userId);
+        revocation.evict(TenantContext.require().slug(), userId);
+    }
+
+    public void invalidateAccessTokensForRole(UUID roleId) {
+        var affected = users.userIdsWithRole(roleId);
+        users.invalidateAccessTokensForRole(roleId);
+        affected.forEach(id -> revocation.evict(TenantContext.require().slug(), id));
     }
 
     private record NewRefresh(UUID id, String raw) {

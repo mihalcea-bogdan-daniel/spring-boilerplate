@@ -30,6 +30,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.polygis.apikey.ApiKeyAuthenticationFilter;
 import com.polygis.apikey.ApiKeyService;
+import com.polygis.auth.AccessTokenRevocation;
+import com.polygis.auth.AccessTokenRevocationFilter;
 import com.polygis.auth.OtpService;
 import com.polygis.auth.oauth2.*;
 import com.polygis.tenancy.TenantAccessFilter;
@@ -58,7 +60,8 @@ public class SecurityConfig {
                                             TenantRegistry tenantRegistry,
                                             OAuth2UserProvisioner provisioner,
                                             OtpService otp,
-                                            ApiKeyService apiKeys) throws Exception {
+                                            ApiKeyService apiKeys,
+                                            AccessTokenRevocation revocation) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable) // bearer tokens; refresh cookie is SameSite=Strict + path-scoped
                 .cors(c -> {})
@@ -100,7 +103,8 @@ public class SecurityConfig {
                                 AnyRequestMatcher.INSTANCE)
                         .accessDeniedHandler(new BearerTokenAccessDeniedHandler()))
                 .addFilterBefore(new ApiKeyAuthenticationFilter(apiKeys), BearerTokenAuthenticationFilter.class)
-                .addFilterAfter(new TenantAccessFilter(tenantRegistry, props), BearerTokenAuthenticationFilter.class);
+                .addFilterAfter(new TenantAccessFilter(tenantRegistry, props), BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(new AccessTokenRevocationFilter(revocation), TenantAccessFilter.class);
         return http.build();
     }
 

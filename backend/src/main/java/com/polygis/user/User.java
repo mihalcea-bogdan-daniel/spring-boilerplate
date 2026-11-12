@@ -67,6 +67,9 @@ public class User {
     @Column(name = "totp_last_step")
     private Long totpLastStep;
 
+    @Column(name = "sessions_invalid_before", insertable = false, updatable = false)
+    private Instant sessionsInvalidBefore;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
