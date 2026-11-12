@@ -106,6 +106,30 @@ class TenantIsolationIT extends IntegrationTestBase {
         mvc.perform(get("/api/auth/me").with(host(hostOf("iso-notify")))).andExpect(status().isForbidden());
     }
 
+    @Autowired
+    com.polygis.tenancy.TenantSchemaMigrator migrator;
+
+    @Test
+    void startupMigrationRunsInParallelAndReportsEveryFailingSchema() throws Exception {
+        provisionTenant("iso-par-a");
+        provisionTenant("iso-par-b");
+        // re-running is idempotent
+        migrator.migrateAll();
+
+        // a tenant whose history disagrees with the scripts must fail loudly, naming the schema
+        jdbc.update("update t_iso_par_b.flyway_schema_history set checksum = 1 where version = '1'");
+        try {
+            org.assertj.core.api.Assertions.assertThatThrownBy(migrator::migrateAll)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("t_iso_par_b")
+                    .hasMessageNotContaining("t_iso_par_a");
+        } finally {
+            jdbc.update("delete from public.tenants where slug = 'iso-par-b'");
+            jdbc.execute("drop schema t_iso_par_b cascade");
+            registry.reload();
+        }
+    }
+
     @Test
     void unknownHostIsRejected() throws Exception {
         mvc.perform(get("/api/auth/me").with(host("nope.example.com"))).andExpect(status().isNotFound());

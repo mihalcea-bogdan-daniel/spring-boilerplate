@@ -87,6 +87,8 @@ app:
     tenant-header: X-Tenant-ID
     # Propagate tenant changes to all nodes instantly via PostgreSQL LISTEN/NOTIFY
     registry-notify: true
+    # Tenant schemas migrated concurrently at startup (keep below the DB pool size)
+    migration-parallelism: ${TENANT_MIGRATION_PARALLELISM:4}
     # Only for local development without wildcard DNS: lets anonymous callers pick a tenant via header
     dev-header-fallback: false
     reserved-slugs: [www, api, admin, app, mail, static, public, platform]
