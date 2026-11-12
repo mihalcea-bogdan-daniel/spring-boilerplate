@@ -9,6 +9,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.polygis.account.AccountController.ChangePasswordRequest;
 import com.polygis.account.AccountController.UpdateProfileRequest;
+import com.polygis.audit.AuditService;
 import com.polygis.auth.AuthService;
 import com.polygis.auth.TokenService;
 import com.polygis.auth.dto.AuthDtos.MeResponse;
@@ -28,15 +29,18 @@ public class AccountService {
     private final AuthService auth;
     private final TenantRegistry registry;
     private final TransactionTemplate tx;
+    private final AuditService audit;
 
     public AccountService(UserRepository users, PasswordEncoder passwordEncoder, TokenService tokens,
-                          AuthService auth, TenantRegistry registry, TransactionTemplate tx) {
+                          AuthService auth, TenantRegistry registry, TransactionTemplate tx,
+                          AuditService audit) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
         this.auth = auth;
         this.registry = registry;
         this.tx = tx;
+        this.audit = audit;
     }
 
     public MeResponse updateProfile(UUID userId, String homeTenant, UpdateProfileRequest req) {
@@ -57,6 +61,7 @@ public class AccountService {
             }
             user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
             tokens.revokeAll(user.getId());
+            audit.recordAs(user.getId(), user.getEmail(), "auth.password_changed", null);
             return null;
         });
     }

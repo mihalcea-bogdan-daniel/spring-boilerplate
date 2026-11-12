@@ -18,6 +18,7 @@ const menu = computed<MenuItem[]>(() => {
     { label: 'Users', icon: 'pi pi-users', route: '/admin/users', visible: auth.can('user:read') },
     { label: 'Roles', icon: 'pi pi-shield', route: '/admin/roles', visible: auth.can('role:read') },
     { label: 'Settings', icon: 'pi pi-cog', route: '/admin/settings', visible: auth.can('settings:read') },
+    { label: 'Audit log', icon: 'pi pi-history', route: '/admin/audit', visible: auth.can('audit:read') },
   ]
   if (admin.some(i => i.visible)) items.push({ label: 'Administration', items: admin })
   if (auth.isSuperAdmin) {

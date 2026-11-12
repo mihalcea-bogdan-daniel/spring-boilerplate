@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.polygis.audit.AuditService;
 import com.polygis.common.ApiException;
 import com.polygis.common.PageResponse;
 import com.polygis.config.AppProperties;
@@ -35,10 +36,11 @@ public class TenantProvisioningService {
     private final MailService mail;
     private final TransactionTemplate tx;
     private final AppProperties props;
+    private final AuditService audit;
 
     public TenantProvisioningService(TenantRepository tenants, TenantSchemaMigrator migrator,
                                      TenantRegistry registry, UserAdminService userAdmin, MailService mail,
-                                     TransactionTemplate tx, AppProperties props) {
+                                     TransactionTemplate tx, AppProperties props, AuditService audit) {
         this.tenants = tenants;
         this.migrator = migrator;
         this.registry = registry;
@@ -46,6 +48,7 @@ public class TenantProvisioningService {
         this.mail = mail;
         this.tx = tx;
         this.props = props;
+        this.audit = audit;
     }
 
     public PageResponse<TenantDto> search(String q, Pageable pageable) {
@@ -80,6 +83,7 @@ public class TenantProvisioningService {
         Tenant active = tx.execute(s -> {
             Tenant t = tenants.findById(tenant.getId()).orElseThrow();
             t.setStatus(TenantStatus.ACTIVE);
+            audit.record("tenant.provisioned", "tenant", t.getSlug(), "admin=" + req.adminEmail());
             return t;
         });
         registry.reload();
@@ -97,6 +101,7 @@ public class TenantProvisioningService {
             tenant.setName(req.name());
             tenant.setDomain(req.domain() == null || req.domain().isBlank() ? null : req.domain().toLowerCase());
             tenant.setStatus(req.status());
+            audit.record("tenant.updated", "tenant", tenant.getSlug(), "status=" + req.status());
             return tenant;
         });
         registry.reload();

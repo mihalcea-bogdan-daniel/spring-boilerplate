@@ -10,6 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.polygis.audit.AuditService;
 import com.polygis.auth.TokenService;
 import com.polygis.common.ApiException;
 import com.polygis.common.PageResponse;
@@ -30,11 +31,13 @@ public class UserAdminService {
     private final TokenService tokens;
     private final MailService mail;
     private final UserIdentityRepository identities;
+    private final AuditService audit;
     private final AppProperties props;
 
     public UserAdminService(UserRepository users, RoleRepository roles, PermissionRepository permissions,
                             PasswordEncoder passwordEncoder, TokenService tokens, MailService mail,
-                            AppProperties props, UserIdentityRepository identities) {
+                            AppProperties props, UserIdentityRepository identities,
+                            AuditService audit) {
         this.users = users;
         this.roles = roles;
         this.permissions = permissions;
@@ -43,6 +46,7 @@ public class UserAdminService {
         this.mail = mail;
         this.props = props;
         this.identities = identities;
+        this.audit = audit;
     }
 
     // ------------------------------------------------------------- users
@@ -83,6 +87,7 @@ public class UserAdminService {
         }
         u.setRoles(resolveRoles(req.roles() == null || req.roles().isEmpty() ? Set.of(Role.USER) : req.roles()));
         users.save(u);
+        audit.record("user.created", "user", u.getId(), u.getEmail() + " roles=" + u.roleNames());
         if (invited && sendInvite) sendInvite(u);
         return UserDto.from(u);
     }
@@ -110,6 +115,7 @@ public class UserAdminService {
         u.setStatus(req.status());
         if (req.roles() != null) u.setRoles(resolveRoles(req.roles()));
         if (req.status() == UserStatus.DISABLED) tokens.revokeAll(u.getId());
+        audit.record("user.updated", "user", u.getId(), "status=" + u.getStatus() + " roles=" + u.roleNames());
         return UserDto.from(u);
     }
 
@@ -123,6 +129,7 @@ public class UserAdminService {
             throw ApiException.badRequest("self_delete", "You cannot delete your own account");
         }
         User u = find(id);
+        audit.record("user.deleted", "user", u.getId(), u.getEmail());
         tokens.revokeAll(u.getId());
         identities.deleteByUser(u);
         u.setStatus(UserStatus.DISABLED);
@@ -159,7 +166,9 @@ public class UserAdminService {
         r.setName(req.name());
         r.setDescription(req.description());
         r.setPermissions(resolvePermissions(req.permissions()));
-        return RoleDto.from(roles.save(r));
+        roles.save(r);
+        audit.record("role.created", "role", r.getId(), r.getName() + " " + req.permissions());
+        return RoleDto.from(r);
     }
 
     @Transactional
@@ -168,6 +177,7 @@ public class UserAdminService {
         if (!r.isSystemRole()) r.setName(req.name());
         r.setDescription(req.description());
         r.setPermissions(resolvePermissions(req.permissions()));
+        audit.record("role.updated", "role", r.getId(), r.getName() + " " + req.permissions());
         return RoleDto.from(r);
     }
 
@@ -175,6 +185,7 @@ public class UserAdminService {
     public void deleteRole(UUID id) {
         Role r = roles.findById(id).orElseThrow(() -> ApiException.notFound("Role"));
         if (r.isSystemRole()) throw ApiException.badRequest("system_role", "System roles cannot be deleted");
+        audit.record("role.deleted", "role", r.getId(), r.getName());
         roles.delete(r);
     }
 

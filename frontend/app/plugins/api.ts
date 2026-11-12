@@ -33,8 +33,9 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (auth.accessToken && !isAnonymousAuthCall(path) && !headers.has('Authorization')) {
         headers.set('Authorization', `Bearer ${auth.accessToken}`)
       }
-      // /auth/* and /me always act on the user's own (home) tenant
+      // /auth/*, /me and the platform console always act on the user's own (home) tenant
       const isOwnAccountCall = path.startsWith('/auth/') || path === '/me' || path.startsWith('/me/')
+        || path.startsWith('/platform/')
       if (tenant.headerValue && !isOwnAccountCall) {
         headers.set(config.public.tenantHeader, tenant.headerValue)
       }

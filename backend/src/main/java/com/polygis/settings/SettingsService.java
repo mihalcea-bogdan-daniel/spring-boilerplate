@@ -4,6 +4,8 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import org.springframework.stereotype.Service;
+
+import com.polygis.audit.AuditService;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Key/value settings stored in the current tenant's schema. */
@@ -14,9 +16,11 @@ public class SettingsService {
     public static final String ALLOW_SOCIAL_LOGIN = "auth.allowSocialLogin";
 
     private final TenantSettingRepository repository;
+    private final AuditService audit;
 
-    public SettingsService(TenantSettingRepository repository) {
+    public SettingsService(TenantSettingRepository repository, AuditService audit) {
         this.repository = repository;
+        this.audit = audit;
     }
 
     @Transactional(readOnly = true)
@@ -42,6 +46,7 @@ public class SettingsService {
             s.setValue(v);
             repository.save(s);
         });
+        audit.record("settings.updated", "settings", null, String.join(", ", values.keySet()));
         return all();
     }
 }

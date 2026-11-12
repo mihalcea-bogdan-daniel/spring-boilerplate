@@ -67,6 +67,18 @@ export interface TenantDto {
   createdAt: string
 }
 
+export interface AuditEventDto {
+  id: string
+  occurredAt: string
+  actorEmail: string | null
+  actorTenant: string | null
+  action: string
+  targetType: string | null
+  targetId: string | null
+  details: string | null
+  ipAddress: string | null
+}
+
 /** RFC 7807 body produced by GlobalExceptionHandler. */
 export interface Problem {
   title?: string

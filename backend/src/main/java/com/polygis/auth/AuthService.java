@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.polygis.audit.AuditService;
 import com.polygis.auth.dto.AuthDtos.*;
 import com.polygis.common.ApiException;
 import com.polygis.config.AppProperties;
@@ -42,10 +43,11 @@ public class AuthService {
     private final SettingsService settings;
     private final TenantRegistry registry;
     private final AppProperties props;
+    private final AuditService audit;
 
     public AuthService(UserRepository users, RoleRepository roles, PasswordEncoder passwordEncoder,
                        TokenService tokens, OtpService otp, MailService mail, SettingsService settings,
-                       TenantRegistry registry, AppProperties props) {
+                       TenantRegistry registry, AppProperties props, AuditService audit) {
         this.users = users;
         this.roles = roles;
         this.passwordEncoder = passwordEncoder;
@@ -55,6 +57,7 @@ public class AuthService {
         this.settings = settings;
         this.registry = registry;
         this.props = props;
+        this.audit = audit;
         this.dummyHash = passwordEncoder.encode("timing-equaliser");
     }
 
@@ -117,6 +120,7 @@ public class AuthService {
         }
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
             registerFailure(user);
+            audit.recordAs(user.getId(), user.getEmail(), "auth.login_failed", user.isLocked() ? "account locked" : null);
             throw badCredentials();
         }
         if (!user.isEmailVerified()) {
@@ -124,6 +128,7 @@ public class AuthService {
             throw ApiException.forbidden("email_not_verified", "E-mail address not verified");
         }
         ensureActive(user);
+        audit.recordAs(user.getId(), user.getEmail(), "auth.login", "password");
         return issue(user, client);
     }
 
@@ -144,6 +149,7 @@ public class AuthService {
         user.setEmailVerified(true); // proving inbox ownership verifies the address
         if (user.getStatus() == UserStatus.PENDING) user.setStatus(UserStatus.ACTIVE);
         ensureActive(user);
+        audit.recordAs(user.getId(), user.getEmail(), "auth.login", "email-code");
         return issue(user, client);
     }
 
@@ -165,6 +171,7 @@ public class AuthService {
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
         tokens.revokeAll(user.getId()); // sign out everywhere
+        audit.recordAs(user.getId(), user.getEmail(), "auth.password_reset", null);
     }
 
     // ---------------------------------------------------------------- tokens
@@ -186,6 +193,7 @@ public class AuthService {
         UUID userId = otp.consumeExchangeCode(code);
         User user = users.findById(userId).orElseThrow(() -> ApiException.badRequest("code_invalid", "Invalid code"));
         ensureActive(user);
+        audit.recordAs(user.getId(), user.getEmail(), "auth.login", "oauth2");
         return issue(user, client);
     }
 
