@@ -5,7 +5,7 @@ import type { PageResponse, TenantDto } from '~/types/api'
 const auth = useAuthStore()
 const tenant = useTenantStore()
 const { $api } = useNuxtApp()
-const appName = useRuntimeConfig().public.appName
+const { name: appName, branding } = useBranding()
 const sidebarOpen = ref(false)
 const route = useRoute()
 watch(() => route.fullPath, () => { sidebarOpen.value = false })
@@ -58,7 +58,8 @@ const { isDark: dark, toggle: toggleDark } = useTheme()
   <div class="shell">
     <aside class="shell-sidebar" :class="{ open: sidebarOpen }">
       <div class="shell-brand">
-        <i class="pi pi-box" style="color: var(--p-primary-color)" /> {{ appName }}
+        <img v-if="branding.logoUrl" :src="branding.logoUrl" alt="" style="height: 1.5rem">
+        <i v-else class="pi pi-box" style="color: var(--p-primary-color)" /> {{ appName }}
       </div>
       <Menu :model="menu">
         <template #item="{ item, props }">

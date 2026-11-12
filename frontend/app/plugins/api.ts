@@ -9,7 +9,9 @@ type ApiOptions = NonNullable<Parameters<typeof $fetch>[1]>
  *  - SSR: talks to the backend directly and forwards the public host so Spring can resolve the tenant
  *  - 401 => one shared refresh-token rotation, then the original request is replayed once
  */
-export default defineNuxtPlugin((nuxtApp) => {
+export default defineNuxtPlugin({
+  name: 'api',
+  setup(nuxtApp) {
   const config = useRuntimeConfig()
   const router = useRouter()
   const auth = useAuthStore()
@@ -63,4 +65,5 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   return { provide: { api } }
+  },
 })

@@ -3,7 +3,9 @@ definePageMeta({ layout: 'auth', public: true })
 
 const auth = useAuthStore()
 const route = useRoute()
-const providers = useRuntimeConfig().public.oauth2Providers as string[]
+const { branding } = useBranding()
+// tenants can switch social login and self-registration off in their settings
+const providers = computed(() => (branding.value.allowSocialLogin ? useRuntimeConfig().public.oauth2Providers as string[] : []))
 
 const form = reactive({ email: '', password: '' })
 const loading = ref(false)
@@ -55,7 +57,7 @@ const providerIcon = (p: string) => ({ google: 'pi pi-google', github: 'pi pi-gi
         <Button type="submit" label="Sign in" icon="pi pi-sign-in" :loading="loading" fluid />
         <Button as="router-link" to="/auth/otp" label="E-mail me a sign-in code" severity="secondary" outlined fluid />
 
-        <Divider align="center"><span class="muted">or continue with</span></Divider>
+        <Divider v-if="providers.length" align="center"><span class="muted">or continue with</span></Divider>
         <div class="grid-2">
           <Button v-for="p in providers" :key="p" :icon="providerIcon(p)" :label="p" severity="contrast" outlined
                   style="text-transform: capitalize" @click="auth.startSocialLogin(p, redirect)" />
@@ -63,7 +65,7 @@ const providerIcon = (p: string) => ({ google: 'pi pi-google', github: 'pi pi-gi
       </form>
     </template>
     <template #footer>
-      <p class="muted">No account? <NuxtLink to="/auth/register">Create one</NuxtLink></p>
+      <p v-if="branding.allowSelfRegistration" class="muted">No account? <NuxtLink to="/auth/register">Create one</NuxtLink></p>
     </template>
   </Card>
 </template>
