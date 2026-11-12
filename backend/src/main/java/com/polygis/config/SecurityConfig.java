@@ -31,6 +31,7 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthen
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -70,6 +71,15 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable) // bearer tokens; refresh cookie is SameSite=Strict + path-scoped
                 .cors(c -> {})
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .headers(h -> h
+                        // API responses, Thymeleaf pages and Swagger UI (which needs inline styles): no inline scripts, no framing
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(
+                                "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+                                        + "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"))
+                        .frameOptions(f -> f.deny())
+                        .referrerPolicy(r -> r.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                        .httpStrictTransportSecurity(hsts -> hsts.includeSubDomains(true).maxAgeInSeconds(31536000))
+                        .permissionsPolicyHeader(pp -> pp.policy("camera=(), microphone=(), geolocation=()")))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(a -> a

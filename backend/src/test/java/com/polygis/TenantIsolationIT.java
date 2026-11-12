@@ -75,6 +75,20 @@ class TenantIsolationIT extends IntegrationTestBase {
     }
 
     @Test
+    void responsesCarrySecurityHeaders() throws Exception {
+        mvc.perform(get("/status").with(host(PLATFORM_HOST)).secure(true))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("X-Frame-Options", "DENY"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .exists("Content-Security-Policy"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .exists("Strict-Transport-Security"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("X-Content-Type-Options", "nosniff"));
+    }
+
+    @Test
     void unknownHostIsRejected() throws Exception {
         mvc.perform(get("/api/auth/me").with(host("nope.example.com"))).andExpect(status().isNotFound());
     }
