@@ -9,7 +9,7 @@ const size = ref(25)
 const search = ref('')
 const q = refDebounced(search, 300)
 
-const { data, pending, refresh } = useApi<PageResponse<AuditEventDto>>('/admin/audit', {
+const { data, pending, error, refresh } = useApi<PageResponse<AuditEventDto>>('/admin/audit', {
   query: { page, size, q, sort: 'occurredAt,desc' },
   server: false,
 })
@@ -35,7 +35,9 @@ const severity = (action: string) =>
       </div>
     </div>
 
+    <LoadError :error="error" what="the audit log" @retry="refresh()" />
     <DataTable
+      v-if="!error"
 :value="data?.content ?? []" :loading="pending" lazy paginator :rows="size"
                :total-records="data?.totalElements ?? 0" :rows-per-page-options="[25, 50, 100]" data-key="id"
                size="small" @page="onPage">

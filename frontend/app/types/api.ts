@@ -125,4 +125,6 @@ export interface Problem {
   detail?: string
   code?: string
   errors?: Record<string, string>
+  /** Same value as the X-Request-Id header and the server logs. */
+  requestId?: string
 }

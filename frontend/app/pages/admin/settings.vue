@@ -5,7 +5,7 @@ const auth = useAuthStore()
 const toast = useToast()
 const { $api } = useNuxtApp()
 
-const { data, pending, refresh } = useApi<Record<string, string | null>>('/admin/settings', { server: false })
+const { data, pending, error, refresh } = useApi<Record<string, string | null>>('/admin/settings', { server: false })
 
 const form = reactive({ displayName: '', primaryColor: 'emerald', logoUrl: '', allowSelfRegistration: true, allowSocialLogin: true })
 const branding = useBranding()
@@ -47,7 +47,8 @@ async function save() {
 <template>
   <div class="stack" style="max-width: 44rem">
     <h1 class="page-title">Settings</h1>
-    <Card>
+    <LoadError :error="error" what="settings" @retry="refresh()" />
+    <Card v-if="!error">
       <template #content>
         <form class="stack" @submit.prevent="save">
           <div class="field">
@@ -83,7 +84,7 @@ async function save() {
             <ToggleSwitch v-model="form.allowSocialLogin" />
           </div>
           <div class="row" style="justify-content: flex-end">
-            <Button type="submit" label="Save" icon="pi pi-check" :loading="saving" :disabled="!auth.can('settings:write')" />
+            <Button type="submit" label="Save" icon="pi pi-check" :loading="saving" :disabled="!auth.can('settings:write') || pending || !data" />
           </div>
         </form>
       </template>

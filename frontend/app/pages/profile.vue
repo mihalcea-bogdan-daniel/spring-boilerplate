@@ -43,7 +43,7 @@ async function savePassword() {
 
 // ---------------------------------------------------------------- active sessions (refresh tokens)
 const { $api } = useNuxtApp()
-const { data: sessions, refresh: reloadSessions } = useApi<SessionDto[]>('/me/sessions', { server: false })
+const { data: sessions, error: sessionsError, refresh: reloadSessions } = useApi<SessionDto[]>('/me/sessions', { server: false })
 
 async function revokeSession(s: SessionDto) {
   try {
@@ -236,7 +236,8 @@ id="p-conf" v-model="password.confirm" :feedback="false" toggle-mask
       <template #title>Active sessions</template>
       <template #subtitle>Devices that can still refresh their sign-in. A revoked device is signed out within 15 minutes.</template>
       <template #content>
-        <DataTable :value="sessions ?? []" data-key="id" size="small">
+        <LoadError :error="sessionsError" what="sessions" @retry="reloadSessions()" />
+        <DataTable v-if="!sessionsError" :value="sessions ?? []" data-key="id" size="small">
           <template #empty>No active sessions.</template>
           <Column header="Device">
             <template #body="{ data: s }">{{ device(s.userAgent) }}</template>

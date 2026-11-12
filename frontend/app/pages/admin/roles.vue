@@ -8,7 +8,7 @@ const toast = useToast()
 const confirm = useConfirm()
 const { $api } = useNuxtApp()
 
-const { data: roles, pending, refresh } = useApi<RoleDto[]>('/admin/roles', { server: false })
+const { data: roles, pending, error, refresh } = useApi<RoleDto[]>('/admin/roles', { server: false })
 const { data: permissions } = useApi<PermissionDto[]>('/admin/permissions', { server: false })
 
 const dialog = ref(false)
@@ -62,7 +62,9 @@ function remove(role: RoleDto) {
       <h1 class="page-title">Roles &amp; permissions</h1>
       <Button v-if="auth.can('role:write')" label="New role" icon="pi pi-plus" @click="open()" />
     </div>
-    <DataTable :value="roles ?? []" :loading="pending" data-key="id">
+    <LoadError :error="error" what="roles" @retry="refresh()" />
+    <DataTable v-if="!error" :value="roles ?? []" :loading="pending" data-key="id">
+      <template #empty>No roles.</template>
       <Column field="name" header="Role">
         <template #body="{ data: r }">
           <span class="row">{{ r.name }} <Tag v-if="r.systemRole" value="system" severity="secondary" /></span>

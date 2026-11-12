@@ -8,7 +8,7 @@ const toast = useToast()
 const confirm = useConfirm()
 const { $api } = useNuxtApp()
 
-const { data: keys, pending, refresh } = useApi<ApiKeyDto[]>('/admin/api-keys', { server: false })
+const { data: keys, pending, error, refresh } = useApi<ApiKeyDto[]>('/admin/api-keys', { server: false })
 
 const dialog = ref(false)
 const saving = ref(false)
@@ -69,7 +69,8 @@ function revoke(k: ApiKeyDto) {
       For scripts and integrations: send the key in the <code>X-API-Key</code> header to this workspace's address.
     </p>
 
-    <DataTable :value="keys ?? []" :loading="pending" data-key="id">
+    <LoadError :error="error" what="API keys" @retry="refresh()" />
+    <DataTable v-if="!error" :value="keys ?? []" :loading="pending" data-key="id">
       <template #empty>No API keys yet.</template>
       <Column field="name" header="Name" />
       <Column header="Key"><template #body="{ data: k }"><code>{{ k.keyPrefix }}…</code></template></Column>

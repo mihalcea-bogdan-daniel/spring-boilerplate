@@ -16,7 +16,7 @@ const sort = ref('createdAt,desc')
 const search = ref('')
 const q = refDebounced(search, 300)
 
-const { data, pending, refresh } = useApi<PageResponse<UserDto>>('/admin/users', {
+const { data, pending, error, refresh } = useApi<PageResponse<UserDto>>('/admin/users', {
   query: { page, size, sort, q },
   server: false,
 })
@@ -127,7 +127,9 @@ function remove(u: UserDto) {
       </div>
     </div>
 
+    <LoadError :error="error" what="users" @retry="refresh()" />
     <DataTable
+      v-if="!error"
       :value="data?.content ?? []"
       :loading="pending"
       lazy

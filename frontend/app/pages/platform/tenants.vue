@@ -12,7 +12,7 @@ const page = ref(0)
 const size = ref(20)
 const search = ref('')
 const q = refDebounced(search, 300)
-const { data, pending, refresh } = useApi<PageResponse<TenantDto>>('/platform/tenants', {
+const { data, pending, error, refresh } = useApi<PageResponse<TenantDto>>('/platform/tenants', {
   query: { page, size, q, sort: 'createdAt,desc' },
   server: false,
 })
@@ -150,9 +150,12 @@ async function manage(t: TenantDto) {
       </div>
     </div>
 
+    <LoadError :error="error" what="tenants" @retry="refresh()" />
     <DataTable
+v-if="!error"
 :value="data?.content ?? []" :loading="pending" lazy paginator :rows="size"
                :total-records="data?.totalElements ?? 0" :rows-per-page-options="[10, 20, 50]" data-key="id" @page="onPage">
+      <template #empty>No tenants.</template>
       <Column field="name" header="Name" />
       <Column field="slug" header="Slug"><template #body="{ data: t }"><code>{{ t.slug }}</code></template></Column>
       <Column field="domain" header="Custom domain"><template #body="{ data: t }">{{ t.domain ?? '—' }}</template></Column>
