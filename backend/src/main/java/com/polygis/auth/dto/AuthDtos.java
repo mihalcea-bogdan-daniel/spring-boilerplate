@@ -52,7 +52,8 @@ public final class AuthDtos {
     }
 
     public record MeResponse(UUID id, String email, String firstName, String lastName, String tenant,
-                             Set<String> roles, Set<String> permissions, boolean superAdmin) {
+                             Set<String> roles, Set<String> permissions, boolean superAdmin,
+                             boolean hasPassword) {
     }
 
     public record MessageResponse(String message) {

@@ -45,6 +45,7 @@ function onTenantChange(slug: string | null) {
 // ------- user menu
 const userMenu = ref()
 const userItems: MenuItem[] = [
+  { label: 'Profile', icon: 'pi pi-user', command: () => navigateTo('/profile') },
   { label: 'Sign out', icon: 'pi pi-sign-out', command: () => auth.logout() },
 ]
 

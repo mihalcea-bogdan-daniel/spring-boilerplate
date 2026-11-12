@@ -114,6 +114,15 @@ export const useAuthStore = defineStore('auth', () => {
     return import.meta.client ? refresh() : false
   }
 
+  async function updateProfile(firstName: string, lastName: string) {
+    user.value = await nuxtApp.$api<Me>('/me', { method: 'PUT', body: { firstName, lastName } })
+  }
+
+  /** The backend revokes every session on password change, so the caller should sign in again. */
+  async function changePassword(currentPassword: string | null, newPassword: string) {
+    await nuxtApp.$api('/me/password', { method: 'PUT', body: { currentPassword, newPassword } })
+  }
+
   async function logout() {
     try {
       await nuxtApp.$api('/auth/logout', { method: 'POST' })
@@ -126,6 +135,6 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     accessToken, user, isAuthenticated, isSuperAdmin, displayName, can,
     setSession, clearSession, login, register, verifyEmail, resendVerification, requestOtp, verifyOtp,
-    forgotPassword, resetPassword, exchangeOAuth2Code, startSocialLogin, refresh, fetchMe, ensureSession, logout,
+    forgotPassword, resetPassword, exchangeOAuth2Code, startSocialLogin, refresh, fetchMe, ensureSession, updateProfile, changePassword, logout,
   }
 })

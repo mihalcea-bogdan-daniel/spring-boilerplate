@@ -7,6 +7,7 @@ export interface Me {
   roles: string[]
   permissions: string[]
   superAdmin: boolean
+  hasPassword: boolean
 }
 
 export interface TokenResponse {

@@ -220,7 +220,7 @@ public class AuthService {
         boolean superAdmin = props.tenancy().platformTenant().equals(tenant.slug())
                 && u.roleNames().contains(Role.SUPER_ADMIN);
         return new MeResponse(u.getId(), u.getEmail(), u.getFirstName(), u.getLastName(), tenant.slug(),
-                u.roleNames(), u.permissionCodes(), superAdmin);
+                u.roleNames(), u.permissionCodes(), superAdmin, u.getPasswordHash() != null);
     }
 
     // ---------------------------------------------------------------- helpers
