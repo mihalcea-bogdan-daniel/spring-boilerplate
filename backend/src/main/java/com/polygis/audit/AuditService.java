@@ -42,6 +42,9 @@ public class AuditService {
             // impersonated sessions are always attributable to the operator behind them
             e.setActorEmail(impersonator == null ? email : email + " (via " + impersonator + ")");
             e.setActorTenant(jwt.getToken().getClaimAsString(JwtClaims.TENANT));
+        } else if (auth != null && auth.isAuthenticated()
+                && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
+            e.setActorEmail(auth.getName()); // machine callers, e.g. "api-key:<name>"
         }
         repository.save(e);
     }

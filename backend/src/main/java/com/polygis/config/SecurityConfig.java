@@ -28,6 +28,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.polygis.apikey.ApiKeyAuthenticationFilter;
+import com.polygis.apikey.ApiKeyService;
 import com.polygis.auth.OtpService;
 import com.polygis.auth.oauth2.*;
 import com.polygis.tenancy.TenantAccessFilter;
@@ -55,7 +57,8 @@ public class SecurityConfig {
                                             ClientRegistrationRepository clients,
                                             TenantRegistry tenantRegistry,
                                             OAuth2UserProvisioner provisioner,
-                                            OtpService otp) throws Exception {
+                                            OtpService otp,
+                                            ApiKeyService apiKeys) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable) // bearer tokens; refresh cookie is SameSite=Strict + path-scoped
                 .cors(c -> {})
@@ -96,6 +99,7 @@ public class SecurityConfig {
                         .defaultAuthenticationEntryPointFor(new BearerTokenAuthenticationEntryPoint(),
                                 AnyRequestMatcher.INSTANCE)
                         .accessDeniedHandler(new BearerTokenAccessDeniedHandler()))
+                .addFilterBefore(new ApiKeyAuthenticationFilter(apiKeys), BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(new TenantAccessFilter(tenantRegistry, props), BearerTokenAuthenticationFilter.class);
         return http.build();
     }
@@ -129,7 +133,8 @@ public class SecurityConfig {
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOriginPatterns(props.cors().allowedOriginPatterns());
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", props.tenancy().tenantHeader()));
+        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", props.tenancy().tenantHeader(),
+                ApiKeyAuthenticationFilter.HEADER));
         cfg.setAllowCredentials(true);
         cfg.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -77,6 +77,16 @@ export interface TenantDto {
   createdAt: string
 }
 
+export interface ApiKeyDto {
+  id: string
+  name: string
+  keyPrefix: string
+  permissions: string[]
+  createdBy: string | null
+  createdAt: string
+  lastUsedAt: string | null
+}
+
 export interface TenantStatsDto {
   slug: string
   schemaVersion: string | null

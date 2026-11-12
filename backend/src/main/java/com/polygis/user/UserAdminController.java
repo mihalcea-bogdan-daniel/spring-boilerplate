@@ -65,7 +65,7 @@ public class UserAdminController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('user:write')")
     public void delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        service.delete(id, UUID.fromString(jwt.getSubject()));
+        service.delete(id, jwt == null ? null : UUID.fromString(jwt.getSubject())); // jwt is null for API keys
     }
 
     @GetMapping("/roles")
