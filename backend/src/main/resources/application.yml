@@ -103,6 +103,8 @@ app:
       same-site: Strict
     password:
       bcrypt-strength: 12
+      # Reject passwords found in known breaches (Have I Been Pwned k-anonymity API; only 5 hash chars are sent)
+      check-breached: ${PASSWORD_CHECK_BREACHED:true}
       max-failed-attempts: 5
       lockout-duration: 15m
     otp:

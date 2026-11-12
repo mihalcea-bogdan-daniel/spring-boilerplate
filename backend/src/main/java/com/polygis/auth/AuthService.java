@@ -44,10 +44,12 @@ public class AuthService {
     private final TenantRegistry registry;
     private final AppProperties props;
     private final AuditService audit;
+    private final BreachedPasswordChecker breached;
 
     public AuthService(UserRepository users, RoleRepository roles, PasswordEncoder passwordEncoder,
                        TokenService tokens, OtpService otp, MailService mail, SettingsService settings,
-                       TenantRegistry registry, AppProperties props, AuditService audit) {
+                       TenantRegistry registry, AppProperties props, AuditService audit,
+                       BreachedPasswordChecker breached) {
         this.users = users;
         this.roles = roles;
         this.passwordEncoder = passwordEncoder;
@@ -58,6 +60,7 @@ public class AuthService {
         this.registry = registry;
         this.props = props;
         this.audit = audit;
+        this.breached = breached;
         this.dummyHash = passwordEncoder.encode("timing-equaliser");
     }
 
@@ -77,6 +80,7 @@ public class AuthService {
             if (!existing.get().isEmailVerified()) sendOtpQuietly(existing.get(), OtpPurpose.EMAIL_VERIFICATION);
             return;
         }
+        breached.assertNotBreached(req.password());
         User user = new User();
         user.setEmail(req.email().trim().toLowerCase());
         user.setPasswordHash(passwordEncoder.encode(req.password()));
@@ -166,6 +170,7 @@ public class AuthService {
     public void resetPassword(ResetPasswordRequest req) {
         User user = users.findByEmailIgnoreCase(req.email())
                 .orElseThrow(() -> ApiException.badRequest("otp_invalid", "Invalid or expired code"));
+        breached.assertNotBreached(req.newPassword());
         otp.verifyNumeric(user.getId(), OtpPurpose.PASSWORD_RESET, req.code());
         user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
         user.setFailedLoginCount(0);

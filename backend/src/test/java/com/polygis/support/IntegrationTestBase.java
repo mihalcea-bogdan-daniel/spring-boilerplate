@@ -42,7 +42,8 @@ import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
         "app.bootstrap.super-admin-password=SuperSecret123",
         "app.security.otp.resend-cooldown=0s",
         "app.security.password.bcrypt-strength=4",
-        "app.rate-limit.auth.enabled=false"
+        "app.rate-limit.auth.enabled=false",
+        "app.security.password.check-breached=false"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.polygis.audit.AuditService;
+import com.polygis.auth.BreachedPasswordChecker;
 import com.polygis.auth.TokenService;
 import com.polygis.common.ApiException;
 import com.polygis.common.PageResponse;
@@ -32,12 +33,13 @@ public class UserAdminService {
     private final MailService mail;
     private final UserIdentityRepository identities;
     private final AuditService audit;
+    private final BreachedPasswordChecker breached;
     private final AppProperties props;
 
     public UserAdminService(UserRepository users, RoleRepository roles, PermissionRepository permissions,
                             PasswordEncoder passwordEncoder, TokenService tokens, MailService mail,
                             AppProperties props, UserIdentityRepository identities,
-                            AuditService audit) {
+                            AuditService audit, BreachedPasswordChecker breached) {
         this.users = users;
         this.roles = roles;
         this.permissions = permissions;
@@ -47,6 +49,7 @@ public class UserAdminService {
         this.props = props;
         this.identities = identities;
         this.audit = audit;
+        this.breached = breached;
     }
 
     // ------------------------------------------------------------- users
@@ -81,6 +84,7 @@ public class UserAdminService {
             // Invited users activate themselves by signing in with an e-mail code (proves inbox ownership).
             u.setStatus(UserStatus.PENDING);
         } else {
+            breached.assertNotBreached(req.password());
             u.setPasswordHash(passwordEncoder.encode(req.password()));
             u.setStatus(UserStatus.ACTIVE);
             u.setEmailVerified(true); // the admin chose the credentials and vouches for the address

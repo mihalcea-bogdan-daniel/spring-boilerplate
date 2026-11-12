@@ -13,6 +13,7 @@ import com.polygis.account.AccountController.ChangePasswordRequest;
 import com.polygis.account.AccountController.UpdateProfileRequest;
 import com.polygis.audit.AuditService;
 import com.polygis.auth.AuthService;
+import com.polygis.auth.BreachedPasswordChecker;
 import com.polygis.auth.RefreshToken;
 import com.polygis.auth.RefreshTokenRepository;
 import com.polygis.auth.TokenService;
@@ -35,10 +36,12 @@ public class AccountService {
     private final TransactionTemplate tx;
     private final AuditService audit;
     private final RefreshTokenRepository refreshTokens;
+    private final BreachedPasswordChecker breached;
 
     public AccountService(UserRepository users, PasswordEncoder passwordEncoder, TokenService tokens,
                           AuthService auth, TenantRegistry registry, TransactionTemplate tx,
-                          AuditService audit, RefreshTokenRepository refreshTokens) {
+                          AuditService audit, RefreshTokenRepository refreshTokens,
+                          BreachedPasswordChecker breached) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
@@ -47,6 +50,7 @@ public class AccountService {
         this.tx = tx;
         this.audit = audit;
         this.refreshTokens = refreshTokens;
+        this.breached = breached;
     }
 
     public MeResponse updateProfile(UUID userId, String homeTenant, UpdateProfileRequest req) {
@@ -65,6 +69,7 @@ public class AccountService {
                     || !passwordEncoder.matches(req.currentPassword(), user.getPasswordHash()))) {
                 throw ApiException.badRequest("wrong_password", "Current password is incorrect");
             }
+            breached.assertNotBreached(req.newPassword());
             user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
             tokens.revokeAll(user.getId());
             audit.recordAs(user.getId(), user.getEmail(), "auth.password_changed", null);
