@@ -117,6 +117,12 @@ app:
       # Set to ".example.com" when using one central OAuth2 callback host (see README)
       cookie-domain: ${OAUTH2_COOKIE_DOMAIN:}
 
+  rate-limit:
+    auth:                          # POST /api/auth/** per tenant + client IP (in-memory, per node)
+      enabled: true
+      capacity: 30
+      window: 1m
+
   bootstrap:
     super-admin-email: ${SUPER_ADMIN_EMAIL:}
     super-admin-password: ${SUPER_ADMIN_PASSWORD:}
