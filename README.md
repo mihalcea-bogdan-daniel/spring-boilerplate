@@ -164,7 +164,7 @@ then open http://admin.localhost and http://acme.localhost.
 
 ## Production checklist
 
-- [ ] `JWT_SECRET` ≥ 32 random bytes from a secret store (or switch `SecurityConfig` to RS256 + JWKS if other services verify tokens)
+- [ ] `JWT_SECRET` ≥ 32 random bytes from a secret store. If other services verify tokens, set `JWT_ALGORITHM=RS256` and `JWT_PRIVATE_KEY` (PKCS#8 PEM); the public key is served at `/api/auth/jwks.json`
 - [ ] Backend reachable **only** from nginx and the Nuxt server — it trusts `X-Forwarded-Host` for tenant resolution
 - [ ] Wildcard TLS certificate (DNS-01) for `*.example.com`; custom domains need their own certs
 - [ ] Rate-limit `/api/auth/**` at nginx (`limit_req`) in addition to the built-in OTP/lockout limits

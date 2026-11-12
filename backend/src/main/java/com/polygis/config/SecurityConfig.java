@@ -1,12 +1,8 @@
 package com.polygis.config;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,12 +16,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
-import org.springframework.security.oauth2.core.OAuth2Error;
-import org.springframework.security.oauth2.core.OAuth2TokenValidator;
-import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.*;
+import com.polygis.auth.JwtClaims;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
@@ -37,12 +28,10 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import com.polygis.auth.JwtClaims;
 import com.polygis.auth.OtpService;
 import com.polygis.auth.oauth2.*;
 import com.polygis.tenancy.TenantAccessFilter;
 import com.polygis.tenancy.TenantRegistry;
-import com.nimbusds.jose.jwk.source.ImmutableSecret;
 
 /**
  * Filter order for an API call:
@@ -111,32 +100,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ------------------------------------------------------------------ JWT
-
-    private SecretKey jwtKey() {
-        String secret = props.security().jwt().secret();
-        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
-            throw new IllegalStateException("app.security.jwt.secret (JWT_SECRET) must be at least 32 bytes");
-        }
-        return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-    }
-
-    @Bean
-    JwtEncoder jwtEncoder() {
-        return new NimbusJwtEncoder(new ImmutableSecret<>(jwtKey()));
-    }
-
-    @Bean
-    JwtDecoder jwtDecoder() {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtKey()).macAlgorithm(MacAlgorithm.HS256).build();
-        OAuth2TokenValidator<Jwt> accessOnly = jwt -> JwtClaims.ACCESS.equals(jwt.getClaimAsString(JwtClaims.TOKEN_TYPE))
-                && jwt.getClaimAsString(JwtClaims.TENANT) != null
-                ? OAuth2TokenValidatorResult.success()
-                : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Not an access token", null));
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefaultWithIssuer(props.security().jwt().issuer()), accessOnly));
-        return decoder;
-    }
+    // JWT signing/verification beans live in JwtConfig
 
     /** roles -> ROLE_*, perms -> plain authorities (use hasAuthority('user:read') in @PreAuthorize). */
     @Bean

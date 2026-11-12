@@ -92,7 +92,11 @@ app:
   security:
     jwt:
       issuer: ${JWT_ISSUER:boilerplate}
-      # >= 32 bytes. Generate with: openssl rand -base64 48
+      # HS256 (shared secret) or RS256 (key pair; public key served at /api/auth/jwks.json)
+      algorithm: ${JWT_ALGORITHM:HS256}
+      # RS256 only: RSA private key, PKCS#8 PEM. openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
+      private-key: ${JWT_PRIVATE_KEY:}
+      # >= 32 bytes. Signs HS256 tokens and (in both modes) the OAuth2 state cookie. openssl rand -base64 48
       secret: ${JWT_SECRET:}
       access-token-ttl: 15m
       refresh-token-ttl: 14d
