@@ -2,7 +2,9 @@ package com.polygis.tenancy;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.util.AntPathMatcher;
@@ -26,6 +28,11 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
             "/actuator/**", "/api/docs/**", "/api/login/oauth2/code/**", "/error",
             "/css/**", "/js/**", "/images/**", "/favicon.ico");
 
+    public static final String REQUEST_ID_HEADER = "X-Request-Id";
+    public static final String MDC_REQUEST_ID = "requestId";
+    public static final String MDC_TENANT = "tenant";
+    public static final String MDC_USER = "user";
+
     private final HostTenantResolver resolver;
     private final AntPathMatcher matcher = new AntPathMatcher();
 
@@ -36,6 +43,10 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
+        // Correlation data for every log line of this request (see logging.pattern.level in application.yml)
+        String requestId = requestId(request);
+        MDC.put(MDC_REQUEST_ID, requestId);
+        response.setHeader(REQUEST_ID_HEADER, requestId);
         try {
             var tenant = resolver.resolve(request);
             if (tenant.isPresent()) {
@@ -44,6 +55,7 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
                     return;
                 }
                 TenantContext.set(tenant.get());
+                MDC.put(MDC_TENANT, tenant.get().slug());
             } else if (!isTenantOptional(request)) {
                 log.debug("No tenant for host {}", request.getServerName());
                 reject(response, HttpStatus.NOT_FOUND, "Unknown tenant");
@@ -52,7 +64,17 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
         } finally {
             TenantContext.clear();
+            MDC.remove(MDC_REQUEST_ID);
+            MDC.remove(MDC_TENANT);
+            MDC.remove(MDC_USER);
         }
+    }
+
+    /** Reuses the proxy's id when it looks sane, so one id follows the request across nginx, Nuxt and Spring. */
+    private static String requestId(HttpServletRequest request) {
+        String incoming = request.getHeader(REQUEST_ID_HEADER);
+        return incoming != null && incoming.matches("[A-Za-z0-9._-]{8,64}") ? incoming
+                : UUID.randomUUID().toString().replace("-", "").substring(0, 16);
     }
 
     private boolean isTenantOptional(HttpServletRequest request) {

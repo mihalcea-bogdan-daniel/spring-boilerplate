@@ -3,6 +3,7 @@ package com.polygis.tenancy;
 import java.io.IOException;
 import java.util.Optional;
 
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -46,6 +47,7 @@ public class TenantAccessFilter extends OncePerRequestFilter {
 
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
             String tokenTenant = jwtAuth.getToken().getClaimAsString(JwtClaims.TENANT);
+            MDC.put(TenantResolutionFilter.MDC_USER, jwtAuth.getToken().getSubject());
 
             if (isSuperAdmin(jwtAuth, tokenTenant)) {
                 if (requested != null) {
@@ -56,6 +58,7 @@ public class TenantAccessFilter extends OncePerRequestFilter {
                     }
                     // super-admins may also manage SUSPENDED tenants
                     TenantContext.set(target.get());
+                    MDC.put(TenantResolutionFilter.MDC_TENANT, target.get().slug() + "<-" + tokenTenant);
                 }
             } else {
                 String current = hostTenant.map(TenantInfo::slug).orElse(null);

@@ -62,6 +62,11 @@ server:
   error:
     include-message: always
 
+# Every log line carries [requestId,tenant,user]; the id is also returned as X-Request-Id
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-},%X{tenant:-},%X{user:-}]"
+
 management:
   endpoints:
     web:
@@ -163,6 +168,8 @@ app:
       secret: ${JWT_SECRET:dev-only-secret-change-me-dev-only-secret-change-me}
     refresh-cookie:
       secure: false
+    password:
+      check-breached: false          # keep local sign-ups offline-friendly
     oauth2:
       frontend-callback: http://{host}:3000/auth/callback
   bootstrap:

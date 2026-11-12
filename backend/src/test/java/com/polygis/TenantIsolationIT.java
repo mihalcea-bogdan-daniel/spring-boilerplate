@@ -85,7 +85,12 @@ class TenantIsolationIT extends IntegrationTestBase {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
                         .exists("Strict-Transport-Security"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
-                        .string("X-Content-Type-Options", "nosniff"));
+                        .string("X-Content-Type-Options", "nosniff"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .exists("X-Request-Id"));
+        mvc.perform(get("/status").with(host(PLATFORM_HOST)).header("X-Request-Id", "edge-12345678"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("X-Request-Id", "edge-12345678"));
     }
 
     @Autowired
