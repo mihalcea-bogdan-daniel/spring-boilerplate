@@ -46,7 +46,7 @@ public class OtpService {
     /** Validates a numeric code; failures count towards the attempt limit even if the caller's tx rolls back. */
     @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = ApiException.class)
     public void verifyNumeric(UUID userId, OtpPurpose purpose, String code) {
-        OneTimeToken token = repository.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(userId, purpose)
+        OneTimeToken token = repository.lockLatestActive(userId, purpose)
                 .filter(OneTimeToken::isActive)
                 .orElseThrow(() -> ApiException.badRequest("otp_invalid", "Invalid or expired code"));
         token.setAttempts(token.getAttempts() + 1);
@@ -70,7 +70,7 @@ public class OtpService {
 
     @Transactional
     public UUID consumeExchangeCode(String code) {
-        OneTimeToken token = repository.findByCodeHashAndPurpose(Hashing.sha256(code), OtpPurpose.OAUTH2_EXCHANGE)
+        OneTimeToken token = repository.lockByCodeHash(Hashing.sha256(code), OtpPurpose.OAUTH2_EXCHANGE)
                 .filter(OneTimeToken::isActive)
                 .orElseThrow(() -> ApiException.badRequest("code_invalid", "Invalid or expired code"));
         token.setConsumedAt(Instant.now());
@@ -93,7 +93,7 @@ public class OtpService {
 
     @Transactional
     public OneTimeToken consumeImpersonationCode(String code) {
-        OneTimeToken token = repository.findByCodeHashAndPurpose(Hashing.sha256(code), OtpPurpose.IMPERSONATION)
+        OneTimeToken token = repository.lockByCodeHash(Hashing.sha256(code), OtpPurpose.IMPERSONATION)
                 .filter(OneTimeToken::isActive)
                 .orElseThrow(() -> ApiException.badRequest("code_invalid", "Invalid or expired code"));
         token.setConsumedAt(Instant.now());
@@ -111,7 +111,7 @@ public class OtpService {
     /** Loads a pending challenge and counts the attempt; the caller consumes it on success. */
     @Transactional(propagation = Propagation.MANDATORY, noRollbackFor = ApiException.class)
     public OneTimeToken attemptMfaChallenge(String code) {
-        OneTimeToken token = repository.findByCodeHashAndPurpose(Hashing.sha256(code), OtpPurpose.MFA_CHALLENGE)
+        OneTimeToken token = repository.lockByCodeHash(Hashing.sha256(code), OtpPurpose.MFA_CHALLENGE)
                 .filter(OneTimeToken::isActive)
                 .orElseThrow(() -> ApiException.unauthorized("mfa_expired", "Sign-in expired, please start again"));
         token.setAttempts(token.getAttempts() + 1);

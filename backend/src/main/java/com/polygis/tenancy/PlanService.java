@@ -2,7 +2,11 @@ package com.polygis.tenancy;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
+import java.util.function.LongSupplier;
+
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.polygis.common.ApiException;
 
@@ -28,9 +32,13 @@ public class PlanService {
     }
 
     /** @throws ApiException 402 {@code quota_exceeded} when the plan's user limit is reached */
-    public void assertCanAddUser(long currentUsers) {
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void assertCanAddUser(LongSupplier currentUsers) {
         int max = currentPlan().maxUsers();
-        if (max >= 0 && currentUsers >= max) {
+        if (max < 0) return;
+        // serialise user creation per tenant until commit, so parallel sign-ups cannot overshoot the quota
+        jdbc.query("select pg_advisory_xact_lock(hashtext(?))", rs -> null, "user-quota:" + TenantContext.require().id());
+        if (currentUsers.getAsLong() >= max) {
             throw new ApiException(HttpStatus.PAYMENT_REQUIRED, "quota_exceeded",
                     "Your plan allows " + max + " users. Upgrade to add more.");
         }

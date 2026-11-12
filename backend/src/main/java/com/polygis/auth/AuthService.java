@@ -91,7 +91,7 @@ public class AuthService {
             return;
         }
         breached.assertNotBreached(req.password());
-        plans.assertCanAddUser(users.count());
+        plans.assertCanAddUser(users::count);
         User user = new User();
         user.setEmail(req.email().trim().toLowerCase());
         user.setPasswordHash(passwordEncoder.encode(req.password()));

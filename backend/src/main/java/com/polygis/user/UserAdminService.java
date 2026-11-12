@@ -78,7 +78,7 @@ public class UserAdminService {
         if (users.existsByEmailIgnoreCase(req.email())) {
             throw ApiException.conflict("email_taken", "A user with this e-mail already exists");
         }
-        plans.assertCanAddUser(users.count());
+        plans.assertCanAddUser(users::count);
         User u = new User();
         u.setEmail(req.email().trim().toLowerCase());
         u.setFirstName(req.firstName());

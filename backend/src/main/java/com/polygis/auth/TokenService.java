@@ -99,9 +99,14 @@ public class TokenService {
         if (!current.isUsable()) {
             throw ApiException.unauthorized("refresh_expired", "Refresh token expired");
         }
+        // Atomic claim: of two concurrent refreshes with the same token exactly one wins; the loser is treated
+        // like a replay, which also kills the winner's family (a legitimate client never refreshes twice at once).
+        if (refreshTokens.markRotated(current.getId(), Instant.now()) == 0) {
+            refreshTokens.revokeFamily(current.getFamilyId(), Instant.now());
+            throw ApiException.unauthorized("refresh_reused", "Refresh token reuse detected");
+        }
         NewRefresh next = newRefreshToken(current.getUserId(), current.getFamilyId(), client);
-        current.setRevokedAt(Instant.now());
-        current.setReplacedBy(next.id);
+        refreshTokens.setReplacedBy(current.getId(), next.id);
         return new RotatedToken(current.getUserId(), next.raw);
     }
 
