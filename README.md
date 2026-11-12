@@ -169,6 +169,23 @@ cp .env.example .env && docker compose up --build
 
 then open http://admin.localhost and http://acme.localhost.
 
+## Keeping frontend types in sync with the API
+
+Every backend test run writes the live OpenAPI document to `backend/build/openapi.json`. Regenerate the
+TypeScript definitions from it after changing a controller or DTO:
+
+```bash
+cd backend && ./gradlew test
+```
+
+```bash
+cd frontend && npm run gen:api
+```
+
+`app/types/api.generated.ts` (generated, committed) contains every path and schema. The hand-written
+`app/types/api.ts` is still what the pages import; move a type over by re-exporting it, e.g.
+`export type UserDto = Required<components['schemas']['UserDto']>`.
+
 ## Production checklist
 
 - [ ] `JWT_SECRET` ≥ 32 random bytes from a secret store. If other services verify tokens, set `JWT_ALGORITHM=RS256` and `JWT_PRIVATE_KEY` (PKCS#8 PEM); the public key is served at `/api/auth/jwks.json`
