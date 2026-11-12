@@ -66,6 +66,7 @@ dependencies {
     testImplementation 'io.zonky.test:embedded-postgres:2.1.0'
     testRuntimeOnly 'io.zonky.test.postgres:embedded-postgres-binaries-darwin-arm64v8'
     testRuntimeOnly 'io.zonky.test.postgres:embedded-postgres-binaries-linux-arm64v8'
+    testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
