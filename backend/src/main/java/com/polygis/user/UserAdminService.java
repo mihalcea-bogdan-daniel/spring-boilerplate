@@ -118,10 +118,18 @@ public class UserAdminService {
     @Transactional
     public UserDto update(UUID id, UpdateUserRequest req) {
         User u = find(id);
+        assertWithinCaller(u.permissionCodes(), "change this user");
+        long adminsBefore = activeAdmins();
         u.setFirstName(req.firstName());
         u.setLastName(req.lastName());
         u.setStatus(req.status());
-        if (req.roles() != null) u.setRoles(resolveRoles(req.roles()));
+        if (req.roles() != null) {
+            Set<Role> next = resolveRoles(req.roles());
+            // SUPER_ADMIN is not managed through this API: keep it rather than silently stripping it
+            u.getRoles().stream().filter(r -> Role.SUPER_ADMIN.equals(r.getName())).forEach(next::add);
+            u.setRoles(next);
+        }
+        assertAdminRemains(adminsBefore);
         if (req.status() == UserStatus.DISABLED) tokens.revokeAll(u.getId());
         audit.record("user.updated", "user", u.getId(), "status=" + u.getStatus() + " roles=" + u.roleNames());
         return UserDto.from(u);
@@ -137,6 +145,8 @@ public class UserAdminService {
             throw ApiException.badRequest("self_delete", "You cannot delete your own account");
         }
         User u = find(id);
+        assertWithinCaller(u.permissionCodes(), "delete this user");
+        long adminsBefore = activeAdmins();
         audit.record("user.deleted", "user", u.getId(), u.getEmail());
         tokens.revokeAll(u.getId());
         identities.deleteByUser(u);
@@ -145,6 +155,8 @@ public class UserAdminService {
         u.setFirstName(null);
         u.setLastName(null);
         u.getRoles().clear();
+        u.setStatus(UserStatus.DISABLED);
+        assertAdminRemains(adminsBefore);
         u.setDeletedAt(java.time.Instant.now());
     }
 
@@ -182,6 +194,11 @@ public class UserAdminService {
     @Transactional
     public RoleDto updateRole(UUID id, RoleRequest req) {
         Role r = roles.findById(id).orElseThrow(() -> ApiException.notFound("Role"));
+        assertWithinCaller(permissionsOf(Set.of(r)), "edit this role");
+        if (Role.SUPER_ADMIN.equals(r.getName()) || Role.TENANT_ADMIN.equals(r.getName())) {
+            // editing the admin role could lock every administrator out of user/role management
+            throw ApiException.forbidden("forbidden_role", r.getName() + " has a fixed set of permissions");
+        }
         if (!r.isSystemRole()) r.setName(req.name());
         r.setDescription(req.description());
         r.setPermissions(resolvePermissions(req.permissions()));
@@ -197,6 +214,58 @@ public class UserAdminService {
         roles.delete(r);
     }
 
+    // ------------------------------------------------------------- privilege guard rails
+
+    /**
+     * Permissions of the caller, or null for internal calls without a security context (provisioning, seeding).
+     * Users, roles and API keys are all limited to what the caller already holds.
+     */
+    private static Set<String> callerPermissions() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return null;
+        Set<String> perms = new HashSet<>();
+        auth.getAuthorities().forEach(a -> perms.add(a.getAuthority()));
+        return perms;
+    }
+
+    private static Set<String> permissionsOf(java.util.Collection<Role> roles) {
+        Set<String> perms = new HashSet<>();
+        roles.forEach(r -> r.getPermissions().forEach(p -> perms.add(p.getCode())));
+        return perms;
+    }
+
+    /** You cannot grant (or take away) permissions you do not hold yourself. */
+    private static void assertWithinCaller(Set<String> permissions, String what) {
+        Set<String> caller = callerPermissions();
+        if (caller != null && !caller.containsAll(permissions)) {
+            Set<String> missing = new java.util.TreeSet<>(permissions);
+            missing.removeAll(caller);
+            throw ApiException.forbidden("permission_escalation",
+                    "You cannot " + what + " because it involves permissions you do not have: " + missing);
+        }
+    }
+
+    private String adminRole() {
+        return TenantContext.require().slug().equals(props.tenancy().platformTenant()) ? Role.SUPER_ADMIN : Role.TENANT_ADMIN;
+    }
+
+    private long activeAdmins() {
+        return users.countActiveWithRole(adminRole());
+    }
+
+    /**
+     * Every tenant keeps at least one active administrator (the platform: one super-admin). Only changes that
+     * take the count from "some" to zero are refused, so a fresh tenant whose invited admin has not signed in
+     * yet can still be managed.
+     */
+    private void assertAdminRemains(long before) {
+        users.flush();
+        String role = adminRole();
+        if (before > 0 && users.countActiveWithRole(role) == 0) {
+            throw ApiException.conflict("last_admin", "This would leave the workspace without an active " + role);
+        }
+    }
+
     // ------------------------------------------------------------- helpers
 
     private User find(UUID id) {
@@ -209,11 +278,13 @@ public class UserAdminService {
         }
         List<Role> found = roles.findByNameIn(names);
         if (found.size() != names.size()) throw ApiException.badRequest("unknown_role", "Unknown role in " + names);
+        assertWithinCaller(permissionsOf(found), "assign these roles");
         return new HashSet<>(found);
     }
 
     private Set<Permission> resolvePermissions(Set<String> codes) {
         if (codes == null || codes.isEmpty()) return new HashSet<>();
+        assertWithinCaller(codes, "grant these permissions");
         List<Permission> found = permissions.findByCodeIn(codes);
         if (found.size() != codes.size()) throw ApiException.badRequest("unknown_permission", "Unknown permission");
         return new HashSet<>(found);

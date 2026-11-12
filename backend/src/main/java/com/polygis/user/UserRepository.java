@@ -17,6 +17,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("select count(u) > 0 from User u where lower(u.email) = lower(:email)")
     boolean existsByEmailIgnoreCase(@Param("email") String email);
 
+    @Query("select count(distinct u) from User u join u.roles r where r.name = :role and u.status = com.polygis.user.UserStatus.ACTIVE")
+    long countActiveWithRole(@Param("role") String role);
+
     @Query("""
             select u from User u
             where :q = ''
