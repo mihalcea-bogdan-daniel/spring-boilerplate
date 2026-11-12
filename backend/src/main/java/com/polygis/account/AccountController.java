@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import com.polygis.auth.JwtClaims;
 import com.polygis.auth.dto.AuthDtos;
 import com.polygis.auth.dto.AuthDtos.MeResponse;
+import com.polygis.mfa.MfaService;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -47,6 +48,28 @@ public class AccountController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changePassword(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChangePasswordRequest req) {
         accounts.changePassword(userId(jwt), tenant(jwt), req);
+    }
+
+    public record MfaCodeRequest(@NotBlank @Size(max = 20) String code) {
+    }
+
+    public record RecoveryCodesResponse(List<String> recoveryCodes) {
+    }
+
+    @PostMapping("/mfa/setup")
+    public MfaService.Setup beginMfaSetup(@AuthenticationPrincipal Jwt jwt) {
+        return accounts.beginMfaSetup(userId(jwt), tenant(jwt));
+    }
+
+    @PostMapping("/mfa/enable")
+    public RecoveryCodesResponse enableMfa(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody MfaCodeRequest req) {
+        return new RecoveryCodesResponse(accounts.enableMfa(userId(jwt), tenant(jwt), req.code()));
+    }
+
+    @PostMapping("/mfa/disable")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void disableMfa(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody MfaCodeRequest req) {
+        accounts.disableMfa(userId(jwt), tenant(jwt), req.code());
     }
 
     @GetMapping("/sessions")

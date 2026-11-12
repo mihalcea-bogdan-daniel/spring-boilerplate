@@ -27,8 +27,8 @@ async function verify() {
   loading.value = true
   error.value = null
   try {
-    await auth.verifyOtp(email.value, code.value)
-    await navigateTo('/')
+    const signedIn = await auth.verifyOtp(email.value, code.value)
+    await navigateTo(signedIn ? '/' : '/auth/mfa')
   } catch (e) {
     error.value = problemOf(e).detail
   } finally {

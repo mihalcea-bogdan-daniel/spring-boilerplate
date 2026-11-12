@@ -53,7 +53,15 @@ public final class AuthDtos {
 
     public record MeResponse(UUID id, String email, String firstName, String lastName, String tenant,
                              Set<String> roles, Set<String> permissions, boolean superAdmin,
-                             boolean hasPassword) {
+                             boolean hasPassword, boolean mfaEnabled) {
+    }
+
+    /** Returned instead of tokens when the account has a second factor. */
+    public record MfaChallengeResponse(boolean mfaRequired, String mfaToken) {
+    }
+
+    public record MfaVerifyRequest(@NotBlank @Size(max = 100) String mfaToken,
+                                   @NotBlank @Size(max = 20) String code) {
     }
 
     public record MessageResponse(String message) {

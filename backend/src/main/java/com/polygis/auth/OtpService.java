@@ -77,6 +77,28 @@ public class OtpService {
         return token.getUserId();
     }
 
+    /** Opaque handle proving "password/e-mail code was correct, second factor still pending" (5 minutes). */
+    @Transactional
+    public String issueMfaChallenge(UUID userId) {
+        String code = Hashing.randomToken(32);
+        save(userId, OtpPurpose.MFA_CHALLENGE, Hashing.sha256(code), Duration.ofMinutes(5));
+        return code;
+    }
+
+    /** Loads a pending challenge and counts the attempt; the caller consumes it on success. */
+    @Transactional(propagation = Propagation.MANDATORY, noRollbackFor = ApiException.class)
+    public OneTimeToken attemptMfaChallenge(String code) {
+        OneTimeToken token = repository.findByCodeHashAndPurpose(Hashing.sha256(code), OtpPurpose.MFA_CHALLENGE)
+                .filter(OneTimeToken::isActive)
+                .orElseThrow(() -> ApiException.unauthorized("mfa_expired", "Sign-in expired, please start again"));
+        token.setAttempts(token.getAttempts() + 1);
+        if (token.getAttempts() > props.maxAttempts()) {
+            token.setConsumedAt(Instant.now());
+            throw ApiException.unauthorized("mfa_expired", "Too many attempts, please sign in again");
+        }
+        return token;
+    }
+
     private void save(UUID userId, OtpPurpose purpose, String hash, Duration ttl) {
         OneTimeToken t = new OneTimeToken();
         t.setUserId(userId);

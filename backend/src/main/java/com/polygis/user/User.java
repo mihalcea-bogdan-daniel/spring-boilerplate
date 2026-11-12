@@ -58,6 +58,15 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Column(name = "totp_secret", length = 64)
+    private String totpSecret;
+
+    @Column(name = "totp_enabled", nullable = false)
+    private boolean totpEnabled;
+
+    @Column(name = "totp_last_step")
+    private Long totpLastStep;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 

@@ -14,8 +14,8 @@ async function submit() {
   loading.value = true
   error.value = null
   try {
-    await auth.login(form.email, form.password)
-    await navigateTo(redirect.value)
+    const signedIn = await auth.login(form.email, form.password)
+    await navigateTo(signedIn ? redirect.value : { path: '/auth/mfa', query: { redirect: redirect.value } })
   } catch (e) {
     const p = problemOf(e)
     if (p.code === 'email_not_verified') {

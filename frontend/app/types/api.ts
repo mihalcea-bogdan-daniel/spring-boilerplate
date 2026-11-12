@@ -8,6 +8,7 @@ export interface Me {
   permissions: string[]
   superAdmin: boolean
   hasPassword: boolean
+  mfaEnabled: boolean
 }
 
 export interface TokenResponse {
@@ -15,6 +16,12 @@ export interface TokenResponse {
   tokenType: 'Bearer'
   expiresIn: number
   user: Me
+}
+
+/** Returned by login endpoints instead of tokens when the account has two-factor authentication. */
+export interface MfaChallengeResponse {
+  mfaRequired: true
+  mfaToken: string
 }
 
 export interface MessageResponse {

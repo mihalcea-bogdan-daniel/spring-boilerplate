@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { Me, MessageResponse, TokenResponse } from '~/types/api'
+import type { Me, MessageResponse, MfaChallengeResponse, TokenResponse } from '~/types/api'
 
 /**
  * Session state.
@@ -42,8 +42,29 @@ export const useAuthStore = defineStore('auth', () => {
 
   // ------------------------------------------------------------------ flows
 
-  async function login(email: string, password: string) {
-    setSession(await nuxtApp.$api<TokenResponse>('/auth/login', { method: 'POST', body: { email, password } }))
+  /** Pending second-factor challenge (kept in memory only; it expires after 5 minutes). */
+  const mfaToken = ref<string | null>(null)
+
+  /** @returns true when signed in, false when a second factor is still required (go to /auth/mfa). */
+  function completeFirstFactor(res: TokenResponse | MfaChallengeResponse): boolean {
+    if ('mfaRequired' in res) {
+      mfaToken.value = res.mfaToken
+      return false
+    }
+    setSession(res)
+    return true
+  }
+
+  async function login(email: string, password: string): Promise<boolean> {
+    return completeFirstFactor(await nuxtApp.$api<TokenResponse | MfaChallengeResponse>(
+      '/auth/login', { method: 'POST', body: { email, password } }))
+  }
+
+  async function verifyMfa(code: string) {
+    setSession(await nuxtApp.$api<TokenResponse>('/auth/mfa/verify', {
+      method: 'POST', body: { mfaToken: mfaToken.value, code },
+    }))
+    mfaToken.value = null
   }
 
   async function register(payload: { email: string, password: string, firstName?: string, lastName?: string }) {
@@ -62,8 +83,9 @@ export const useAuthStore = defineStore('auth', () => {
     return nuxtApp.$api<MessageResponse>('/auth/otp/request', { method: 'POST', body: { email } })
   }
 
-  async function verifyOtp(email: string, code: string) {
-    setSession(await nuxtApp.$api<TokenResponse>('/auth/otp/verify', { method: 'POST', body: { email, code } }))
+  async function verifyOtp(email: string, code: string): Promise<boolean> {
+    return completeFirstFactor(await nuxtApp.$api<TokenResponse | MfaChallengeResponse>(
+      '/auth/otp/verify', { method: 'POST', body: { email, code } }))
   }
 
   async function forgotPassword(email: string) {
@@ -133,7 +155,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   return {
-    accessToken, user, isAuthenticated, isSuperAdmin, displayName, can,
+    accessToken, user, mfaToken, verifyMfa, isAuthenticated, isSuperAdmin, displayName, can,
     setSession, clearSession, login, register, verifyEmail, resendVerification, requestOtp, verifyOtp,
     forgotPassword, resetPassword, exchangeOAuth2Code, startSocialLogin, refresh, fetchMe, ensureSession, updateProfile, changePassword, logout,
   }

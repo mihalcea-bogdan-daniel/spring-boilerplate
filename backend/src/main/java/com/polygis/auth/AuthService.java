@@ -14,6 +14,7 @@ import com.polygis.auth.dto.AuthDtos.*;
 import com.polygis.common.ApiException;
 import com.polygis.config.AppProperties;
 import com.polygis.mail.MailService;
+import com.polygis.mfa.MfaService;
 import com.polygis.settings.SettingsService;
 import com.polygis.tenancy.TenantContext;
 import com.polygis.tenancy.TenantInfo;
@@ -45,11 +46,12 @@ public class AuthService {
     private final AppProperties props;
     private final AuditService audit;
     private final BreachedPasswordChecker breached;
+    private final MfaService mfa;
 
     public AuthService(UserRepository users, RoleRepository roles, PasswordEncoder passwordEncoder,
                        TokenService tokens, OtpService otp, MailService mail, SettingsService settings,
                        TenantRegistry registry, AppProperties props, AuditService audit,
-                       BreachedPasswordChecker breached) {
+                       BreachedPasswordChecker breached, MfaService mfa) {
         this.users = users;
         this.roles = roles;
         this.passwordEncoder = passwordEncoder;
@@ -61,10 +63,15 @@ public class AuthService {
         this.props = props;
         this.audit = audit;
         this.breached = breached;
+        this.mfa = mfa;
         this.dummyHash = passwordEncoder.encode("timing-equaliser");
     }
 
-    public record AuthResult(TokenResponse body, String refreshToken) {
+    /** Either a full session (body + refreshToken) or a pending second-factor challenge (mfaToken). */
+    public record AuthResult(TokenResponse body, String refreshToken, String mfaToken) {
+        public AuthResult(TokenResponse body, String refreshToken) {
+            this(body, refreshToken, null);
+        }
     }
 
     // ---------------------------------------------------------------- registration + e-mail verification
@@ -132,8 +139,7 @@ public class AuthService {
             throw ApiException.forbidden("email_not_verified", "E-mail address not verified");
         }
         ensureActive(user);
-        audit.recordAs(user.getId(), user.getEmail(), "auth.login", "password");
-        return issue(user, client);
+        return completeFirstFactor(user, client, "password");
     }
 
     // ---------------------------------------------------------------- passwordless (e-mail OTP) login
@@ -153,7 +159,32 @@ public class AuthService {
         user.setEmailVerified(true); // proving inbox ownership verifies the address
         if (user.getStatus() == UserStatus.PENDING) user.setStatus(UserStatus.ACTIVE);
         ensureActive(user);
-        audit.recordAs(user.getId(), user.getEmail(), "auth.login", "email-code");
+        return completeFirstFactor(user, client, "email-code");
+    }
+
+    // ---------------------------------------------------------------- second factor (TOTP)
+
+    /** First factor passed: sign in, or hand out a challenge if the account has TOTP enabled. */
+    private AuthResult completeFirstFactor(User user, TokenService.ClientInfo client, String method) {
+        if (user.isTotpEnabled()) {
+            return new AuthResult(null, null, otp.issueMfaChallenge(user.getId()));
+        }
+        audit.recordAs(user.getId(), user.getEmail(), "auth.login", method);
+        return issue(user, client);
+    }
+
+    @Transactional(noRollbackFor = ApiException.class)
+    public AuthResult verifyMfa(MfaVerifyRequest req, TokenService.ClientInfo client) {
+        OneTimeToken challenge = otp.attemptMfaChallenge(req.mfaToken());
+        User user = users.findById(challenge.getUserId())
+                .orElseThrow(() -> ApiException.unauthorized("mfa_expired", "Sign-in expired, please start again"));
+        if (!mfa.verify(user, req.code())) {
+            audit.recordAs(user.getId(), user.getEmail(), "auth.mfa_failed", null);
+            throw ApiException.badRequest("mfa_invalid", "Invalid authentication code");
+        }
+        challenge.setConsumedAt(Instant.now());
+        ensureActive(user);
+        audit.recordAs(user.getId(), user.getEmail(), "auth.login", "mfa");
         return issue(user, client);
     }
 
@@ -233,7 +264,8 @@ public class AuthService {
         boolean superAdmin = props.tenancy().platformTenant().equals(tenant.slug())
                 && u.roleNames().contains(Role.SUPER_ADMIN);
         return new MeResponse(u.getId(), u.getEmail(), u.getFirstName(), u.getLastName(), tenant.slug(),
-                u.roleNames(), u.permissionCodes(), superAdmin, u.getPasswordHash() != null);
+                u.roleNames(), u.permissionCodes(), superAdmin, u.getPasswordHash() != null,
+                u.isTotpEnabled());
     }
 
     // ---------------------------------------------------------------- helpers

@@ -19,6 +19,7 @@ import com.polygis.auth.RefreshTokenRepository;
 import com.polygis.auth.TokenService;
 import com.polygis.auth.dto.AuthDtos.MeResponse;
 import com.polygis.common.ApiException;
+import com.polygis.mfa.MfaService;
 import com.polygis.tenancy.TenantContext;
 import com.polygis.tenancy.TenantInfo;
 import com.polygis.tenancy.TenantRegistry;
@@ -37,11 +38,12 @@ public class AccountService {
     private final AuditService audit;
     private final RefreshTokenRepository refreshTokens;
     private final BreachedPasswordChecker breached;
+    private final MfaService mfa;
 
     public AccountService(UserRepository users, PasswordEncoder passwordEncoder, TokenService tokens,
                           AuthService auth, TenantRegistry registry, TransactionTemplate tx,
                           AuditService audit, RefreshTokenRepository refreshTokens,
-                          BreachedPasswordChecker breached) {
+                          BreachedPasswordChecker breached, MfaService mfa) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
@@ -51,6 +53,7 @@ public class AccountService {
         this.audit = audit;
         this.refreshTokens = refreshTokens;
         this.breached = breached;
+        this.mfa = mfa;
     }
 
     public MeResponse updateProfile(UUID userId, String homeTenant, UpdateProfileRequest req) {
@@ -73,6 +76,28 @@ public class AccountService {
             user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
             tokens.revokeAll(user.getId());
             audit.recordAs(user.getId(), user.getEmail(), "auth.password_changed", null);
+            return null;
+        });
+    }
+
+    // ---------------------------------------------------------------- two-factor authentication
+
+    public MfaService.Setup beginMfaSetup(UUID userId, String homeTenant) {
+        return inHomeTenant(registry.requireBySlug(homeTenant), userId, mfa::beginSetup);
+    }
+
+    public List<String> enableMfa(UUID userId, String homeTenant, String code) {
+        return inHomeTenant(registry.requireBySlug(homeTenant), userId, user -> {
+            List<String> recoveryCodes = mfa.enable(user, code);
+            audit.recordAs(user.getId(), user.getEmail(), "auth.mfa_enabled", null);
+            return recoveryCodes;
+        });
+    }
+
+    public void disableMfa(UUID userId, String homeTenant, String code) {
+        inHomeTenant(registry.requireBySlug(homeTenant), userId, user -> {
+            mfa.disable(user, code);
+            audit.recordAs(user.getId(), user.getEmail(), "auth.mfa_disabled", null);
             return null;
         });
     }
@@ -103,7 +128,7 @@ public class AccountService {
     }
 
     /** A super-admin may be switched into another tenant (X-Tenant-ID); their own account lives at home. */
-    private <T> T inHomeTenant(TenantInfo home, UUID userId, Function<User, T> work) {
+    <T> T inHomeTenant(TenantInfo home, UUID userId, Function<User, T> work) {
         return TenantContext.callAs(home, () -> tx.execute(status -> {
             User user = users.findById(userId)
                     .orElseThrow(() -> ApiException.unauthorized("user_gone", "User no longer exists"));
