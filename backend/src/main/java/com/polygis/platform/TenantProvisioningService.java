@@ -112,6 +112,7 @@ public class TenantProvisioningService {
             tenant.setName(req.name());
             tenant.setDomain(req.domain() == null || req.domain().isBlank() ? null : req.domain().toLowerCase());
             tenant.setStatus(req.status());
+            if (req.plan() != null) tenant.setPlan(req.plan());
             audit.record("tenant.updated", "tenant", tenant.getSlug(), "status=" + req.status());
             return tenant;
         });

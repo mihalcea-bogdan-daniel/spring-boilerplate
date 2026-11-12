@@ -43,6 +43,8 @@ import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
         "app.security.otp.resend-cooldown=0s",
         "app.security.password.bcrypt-strength=4",
         "app.rate-limit.auth.enabled=false",
+        "app.plans.free.max-users=-1", // quotas are exercised explicitly in PlanIT
+        "app.plans.tiny.max-users=2",
         "app.security.password.check-breached=false"
 })
 @AutoConfigureMockMvc

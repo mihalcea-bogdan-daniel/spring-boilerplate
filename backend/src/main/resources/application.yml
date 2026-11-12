@@ -132,6 +132,17 @@ app:
       # Set to ".example.com" when using one central OAuth2 callback host (see README)
       cookie-domain: ${OAUTH2_COOKIE_DOMAIN:}
 
+  # Plans referenced by public.tenants.plan. max-users: -1 = unlimited. Unknown plan names are unlimited.
+  plans:
+    free:
+      max-users: 5
+    pro:
+      max-users: 50
+      features: [api-keys]
+    enterprise:
+      max-users: -1
+      features: [api-keys, sso]
+
   rate-limit:
     auth:                          # POST /api/auth/** per tenant + client IP (in-memory, per node)
       enabled: true

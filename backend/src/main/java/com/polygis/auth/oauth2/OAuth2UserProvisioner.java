@@ -19,9 +19,12 @@ public class OAuth2UserProvisioner {
     private final RoleRepository roles;
     private final SettingsService settings;
     private final AppProperties props;
+    private final com.polygis.tenancy.PlanService plans;
 
     public OAuth2UserProvisioner(UserRepository users, UserIdentityRepository identities, RoleRepository roles,
-                                 SettingsService settings, AppProperties props) {
+                                 SettingsService settings, AppProperties props,
+                                 com.polygis.tenancy.PlanService plans) {
+        this.plans = plans;
         this.users = users;
         this.identities = identities;
         this.roles = roles;
@@ -66,6 +69,7 @@ public class OAuth2UserProvisioner {
                     || !settings.getBoolean(SettingsService.ALLOW_SELF_REGISTRATION, true)) {
                 throw ApiException.forbidden("registration_disabled", "No account for this e-mail");
             }
+            plans.assertCanAddUser(users.count());
             User u = new User();
             u.setEmail(p.email().toLowerCase());
             u.setFirstName(p.firstName());

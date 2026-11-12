@@ -16,6 +16,7 @@ import com.polygis.config.AppProperties;
 import com.polygis.mail.MailService;
 import com.polygis.mfa.MfaService;
 import com.polygis.settings.SettingsService;
+import com.polygis.tenancy.PlanService;
 import com.polygis.tenancy.TenantContext;
 import com.polygis.tenancy.TenantInfo;
 import com.polygis.tenancy.TenantRegistry;
@@ -47,11 +48,13 @@ public class AuthService {
     private final AuditService audit;
     private final BreachedPasswordChecker breached;
     private final MfaService mfa;
+    private final PlanService plans;
 
     public AuthService(UserRepository users, RoleRepository roles, PasswordEncoder passwordEncoder,
                        TokenService tokens, OtpService otp, MailService mail, SettingsService settings,
                        TenantRegistry registry, AppProperties props, AuditService audit,
-                       BreachedPasswordChecker breached, MfaService mfa) {
+                       BreachedPasswordChecker breached, MfaService mfa, PlanService plans) {
+        this.plans = plans;
         this.users = users;
         this.roles = roles;
         this.passwordEncoder = passwordEncoder;
@@ -88,6 +91,7 @@ public class AuthService {
             return;
         }
         breached.assertNotBreached(req.password());
+        plans.assertCanAddUser(users.count());
         User user = new User();
         user.setEmail(req.email().trim().toLowerCase());
         user.setPasswordHash(passwordEncoder.encode(req.password()));

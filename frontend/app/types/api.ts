@@ -73,6 +73,7 @@ export interface TenantDto {
   schemaName: string
   domain: string | null
   status: TenantStatus
+  plan: string
   createdAt: string
 }
 

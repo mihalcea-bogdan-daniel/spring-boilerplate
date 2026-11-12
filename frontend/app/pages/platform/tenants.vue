@@ -50,14 +50,15 @@ async function provision() {
 
 // --------------------------------------------------- edit
 const editDialog = ref(false)
-const editForm = reactive<{ id: string, name: string, domain: string, status: TenantStatus }>({ id: '', name: '', domain: '', status: 'ACTIVE' })
+const plans = ['free', 'pro', 'enterprise']
+const editForm = reactive<{ id: string, name: string, domain: string, status: TenantStatus, plan: string }>({ id: '', name: '', domain: '', status: 'ACTIVE', plan: 'free' })
 function openEdit(t: TenantDto) {
-  Object.assign(editForm, { id: t.id, name: t.name, domain: t.domain ?? '', status: t.status })
+  Object.assign(editForm, { id: t.id, name: t.name, domain: t.domain ?? '', status: t.status, plan: t.plan })
   editDialog.value = true
 }
 async function saveEdit() {
   try {
-    await $api(`/platform/tenants/${editForm.id}`, { method: 'PUT', body: { name: editForm.name, domain: editForm.domain || null, status: editForm.status } })
+    await $api(`/platform/tenants/${editForm.id}`, { method: 'PUT', body: { name: editForm.name, domain: editForm.domain || null, status: editForm.status, plan: editForm.plan } })
     editDialog.value = false
     await refresh()
   } catch (e) {
@@ -154,6 +155,7 @@ async function manage(t: TenantDto) {
       <Column field="slug" header="Slug"><template #body="{ data: t }"><code>{{ t.slug }}</code></template></Column>
       <Column field="domain" header="Custom domain"><template #body="{ data: t }">{{ t.domain ?? '—' }}</template></Column>
       <Column field="schemaName" header="Schema"><template #body="{ data: t }"><code>{{ t.schemaName }}</code></template></Column>
+      <Column field="plan" header="Plan"><template #body="{ data: t }"><Tag :value="t.plan" severity="secondary" /></template></Column>
       <Column field="status" header="Status"><template #body="{ data: t }"><Tag :value="t.status" :severity="severity(t.status)" /></template></Column>
       <Column style="width: 17rem; text-align: right">
         <template #body="{ data: t }">
@@ -242,6 +244,7 @@ async function manage(t: TenantDto) {
         <div class="field"><label for="e-name">Name</label><InputText id="e-name" v-model="editForm.name" required fluid /></div>
         <div class="field"><label for="e-domain">Custom domain</label><InputText id="e-domain" v-model="editForm.domain" fluid /></div>
         <div class="field"><label for="e-status">Status</label><Select id="e-status" v-model="editForm.status" :options="statuses" fluid /></div>
+        <div class="field"><label for="e-plan">Plan</label><Select id="e-plan" v-model="editForm.plan" :options="plans" editable fluid /></div>
         <div class="row" style="justify-content: flex-end">
           <Button type="button" label="Cancel" severity="secondary" text @click="editDialog = false" />
           <Button type="submit" label="Save" icon="pi pi-check" />

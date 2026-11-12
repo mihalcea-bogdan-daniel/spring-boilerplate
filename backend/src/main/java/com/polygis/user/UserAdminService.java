@@ -17,6 +17,7 @@ import com.polygis.common.ApiException;
 import com.polygis.common.PageResponse;
 import com.polygis.config.AppProperties;
 import com.polygis.mail.MailService;
+import com.polygis.tenancy.PlanService;
 import com.polygis.tenancy.TenantContext;
 import com.polygis.tenancy.TenantInfo;
 import com.polygis.user.dto.UserDtos.*;
@@ -34,12 +35,14 @@ public class UserAdminService {
     private final UserIdentityRepository identities;
     private final AuditService audit;
     private final BreachedPasswordChecker breached;
+    private final PlanService plans;
     private final AppProperties props;
 
     public UserAdminService(UserRepository users, RoleRepository roles, PermissionRepository permissions,
                             PasswordEncoder passwordEncoder, TokenService tokens, MailService mail,
                             AppProperties props, UserIdentityRepository identities,
-                            AuditService audit, BreachedPasswordChecker breached) {
+                            AuditService audit, BreachedPasswordChecker breached, PlanService plans) {
+        this.plans = plans;
         this.users = users;
         this.roles = roles;
         this.permissions = permissions;
@@ -75,6 +78,7 @@ public class UserAdminService {
         if (users.existsByEmailIgnoreCase(req.email())) {
             throw ApiException.conflict("email_taken", "A user with this e-mail already exists");
         }
+        plans.assertCanAddUser(users.count());
         User u = new User();
         u.setEmail(req.email().trim().toLowerCase());
         u.setFirstName(req.firstName());
