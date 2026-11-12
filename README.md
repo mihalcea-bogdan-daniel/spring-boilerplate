@@ -106,8 +106,8 @@ fine for a few tenants, but Google/GitHub do not accept wildcards.
 `https://auth.example.com/api/login/oauth2/code/{provider}`. The tenant comes back inside the signed cookie and
 the user is redirected to `https://<their tenant host>/auth/callback`.
 
-GitHub only returns a public e-mail in `/user`; for users with a private e-mail add a custom
-`OAuth2UserService` that calls `GET /user/emails` (scope `user:email` is already requested).
+GitHub only returns a public e-mail in `/user`, so `GitHubEmailOAuth2UserService` asks `/user/emails` for the
+primary verified address (scope `user:email`). Unverified addresses are never accepted.
 
 ## RBAC
 

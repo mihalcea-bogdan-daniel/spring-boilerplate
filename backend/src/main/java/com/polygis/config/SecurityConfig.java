@@ -89,6 +89,7 @@ public class SecurityConfig {
                                 .authorizationRequestRepository(
                                         new HttpCookieOAuth2AuthorizationRequestRepository(props)))
                         .redirectionEndpoint(r -> r.baseUri("/api/login/oauth2/code/*"))
+                        .userInfoEndpoint(u -> u.userService(new GitHubEmailOAuth2UserService()))
                         .successHandler(new OAuth2LoginSuccessHandler(tenantRegistry, provisioner, otp, props))
                         .failureHandler(new OAuth2LoginFailureHandler(props)))
                 .exceptionHandling(e -> e

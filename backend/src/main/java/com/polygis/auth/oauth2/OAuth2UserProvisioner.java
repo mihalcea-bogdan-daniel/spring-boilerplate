@@ -36,9 +36,9 @@ public class OAuth2UserProvisioner {
             return switch (provider) {
                 case "google" -> new ProviderProfile(provider, str(a, "sub"), str(a, "email"),
                         Boolean.TRUE.equals(a.get("email_verified")), str(a, "given_name"), str(a, "family_name"));
-                // GitHub only exposes a public e-mail here; private ones need GET /user/emails (see README)
-                case "github" -> new ProviderProfile(provider, str(a, "id"), str(a, "email"), str(a, "email") != null,
-                        str(a, "name"), null);
+                // e-mail + email_verified are resolved from /user/emails by GitHubEmailOAuth2UserService
+                case "github" -> new ProviderProfile(provider, str(a, "id"), str(a, "email"),
+                        Boolean.TRUE.equals(a.get("email_verified")), str(a, "name"), null);
                 default -> new ProviderProfile(provider, str(a, "sub"), str(a, "email"),
                         Boolean.TRUE.equals(a.get("email_verified")), str(a, "given_name"), str(a, "family_name"));
             };
