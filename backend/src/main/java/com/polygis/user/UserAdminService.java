@@ -37,13 +37,16 @@ public class UserAdminService {
     private final BreachedPasswordChecker breached;
     private final PlanService plans;
     private final com.polygis.apikey.ApiKeyService apiKeys;
+    private final com.polygis.passkey.PasskeyService passkeys;
     private final AppProperties props;
 
     public UserAdminService(UserRepository users, RoleRepository roles, PermissionRepository permissions,
                             PasswordEncoder passwordEncoder, TokenService tokens, MailService mail,
                             AppProperties props, UserIdentityRepository identities,
                             AuditService audit, BreachedPasswordChecker breached, PlanService plans,
-                            @org.springframework.context.annotation.Lazy com.polygis.apikey.ApiKeyService apiKeys) {
+                            @org.springframework.context.annotation.Lazy com.polygis.apikey.ApiKeyService apiKeys,
+                            com.polygis.passkey.PasskeyService passkeys) {
+        this.passkeys = passkeys;
         this.plans = plans;
         this.apiKeys = apiKeys;
         this.users = users;
@@ -161,6 +164,7 @@ public class UserAdminService {
         audit.record("user.deleted", "user", u.getId(), u.getEmail());
         tokens.revokeAll(u.getId());
         apiKeys.revokeForOwner(u.getId(), null, "owner deleted");
+        passkeys.deleteAllFor(u.getId());
         identities.deleteByUser(u);
         u.setStatus(UserStatus.DISABLED);
         u.setPasswordHash(null);

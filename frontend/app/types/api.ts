@@ -77,6 +77,15 @@ export interface TenantDto {
   createdAt: string
 }
 
+export interface PasskeyDto {
+  id: string
+  name: string
+  createdAt: string
+  lastUsedAt: string | null
+  /** Synced through a password manager / platform account (iCloud Keychain, Google Password Manager...). */
+  synced: boolean
+}
+
 export interface ApiKeyDto {
   id: string
   name: string

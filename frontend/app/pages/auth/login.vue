@@ -29,6 +29,22 @@ async function submit() {
   }
 }
 
+// ---------------------------------------------------------------- passkey sign-in
+const passkeys = usePasskeys()
+const passkeyLoading = ref(false)
+async function passkeySignIn() {
+  passkeyLoading.value = true
+  error.value = null
+  try {
+    await passkeys.signIn()
+    await navigateTo(redirect.value)
+  } catch (e) {
+    error.value = passkeys.messageOf(e)
+  } finally {
+    passkeyLoading.value = false
+  }
+}
+
 const providerIcon = (p: string) => ({ google: 'pi pi-google', github: 'pi pi-github' }[p] ?? 'pi pi-sign-in')
 </script>
 
@@ -56,6 +72,9 @@ id="password" v-model="form.password" :feedback="false" toggle-mask
                     autocomplete="current-password" required fluid />
         </div>
         <Button type="submit" label="Sign in" icon="pi pi-sign-in" :loading="loading" fluid />
+        <Button
+v-if="passkeys.supported.value" type="button" label="Sign in with a passkey" icon="pi pi-key"
+                severity="secondary" :loading="passkeyLoading" fluid @click="passkeySignIn" />
         <Button as="router-link" to="/auth/otp" label="E-mail me a sign-in code" severity="secondary" outlined fluid />
 
         <Divider v-if="providers.length" align="center"><span class="muted">or continue with</span></Divider>

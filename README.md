@@ -50,7 +50,7 @@ spring-boilerplate/
 
 | Area | Feature |
 |---|---|
-| Account | Profile, set/change password, active sessions with revoke, TOTP two-factor with recovery codes |
+| Account | Profile, set/change password, active sessions with revoke, TOTP two-factor with recovery codes, passkeys |
 | Admin | User invitations, soft delete, audit log, API keys (`X-API-Key`), per-tenant branding |
 | Platform | Plans and user quotas (`app.plans.*`), tenant status (schema version, size, usage), offboarding, "sign in as user" |
 | Security | Auth rate limiting, breached-password check, security headers, optional RS256 + JWKS |
@@ -108,6 +108,15 @@ from the token's own tenant, so switching never breaks the session.
   Endpoints that take an e-mail always answer `202` to avoid account enumeration.
 * **OAuth2 state** lives in an HMAC-signed cookie (no HTTP session) that also carries the tenant, so the callback
   works even on a central callback host. Tokens never appear in URLs: the SPA receives a 60-second one-time code.
+
+### Passkeys
+
+Users add passkeys from their profile and then use **Sign in with a passkey** on the login page (discoverable
+credentials: no e-mail needed). The relying party is the workspace host, so a passkey created on
+`acme.example.com` only works there. User verification (biometrics or device PIN) is required, so a passkey
+sign-in skips the TOTP step. Ceremonies are stateless: challenges are one-time tokens in the tenant schema.
+Verification uses [webauthn4j](https://github.com/webauthn4j/webauthn4j) (0.30.x: the 0.31 line needs Jackson 3,
+which Spring Boot 3.5 does not ship).
 
 ### OAuth2 redirect URIs
 

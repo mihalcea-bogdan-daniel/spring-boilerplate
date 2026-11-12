@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import QRCode from 'qrcode'
-import type { SessionDto } from '~/types/api'
+import type { PasskeyDto, SessionDto } from '~/types/api'
 
 const auth = useAuthStore()
 const toast = useToast()
@@ -108,6 +108,35 @@ async function disableMfa() {
   }
 }
 
+// ---------------------------------------------------------------- passkeys
+const passkeyApi = usePasskeys()
+const { data: passkeyList, error: passkeysError, refresh: reloadPasskeys } = useApi<PasskeyDto[]>('/me/passkeys', { server: false })
+const passkeyName = ref('')
+const addingPasskey = ref(false)
+
+async function addPasskey() {
+  addingPasskey.value = true
+  try {
+    await passkeyApi.register(passkeyName.value.trim() || device(navigator.userAgent))
+    passkeyName.value = ''
+    toast.add({ severity: 'success', summary: 'Passkey added', life: 3000 })
+    await reloadPasskeys()
+  } catch (e) {
+    toast.add({ severity: 'error', summary: passkeyApi.messageOf(e), life: 6000 })
+  } finally {
+    addingPasskey.value = false
+  }
+}
+
+async function removePasskey(p: PasskeyDto) {
+  try {
+    await $api(`/me/passkeys/${p.id}`, { method: 'DELETE' })
+    await reloadPasskeys()
+  } catch (e) {
+    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
+  }
+}
+
 /** Short human label for a User-Agent string. */
 function device(ua: string | null): string {
   if (!ua) return 'Unknown device'
@@ -174,6 +203,35 @@ id="p-conf" v-model="password.confirm" :feedback="false" toggle-mask
             <Button type="submit" label="Update password" icon="pi pi-lock" :loading="savingPassword" />
           </div>
         </form>
+      </template>
+    </Card>
+
+    <Card>
+      <template #title>Passkeys</template>
+      <template #subtitle>Sign in with your fingerprint, face or device PIN instead of a password. Works on this workspace only.</template>
+      <template #content>
+        <div class="stack">
+          <LoadError :error="passkeysError" what="passkeys" @retry="reloadPasskeys()" />
+          <DataTable v-if="!passkeysError" :value="passkeyList ?? []" data-key="id" size="small">
+            <template #empty>No passkeys yet.</template>
+            <Column field="name" header="Name" />
+            <Column header="Added"><template #body="{ data: p }">{{ new Date(p.createdAt).toLocaleDateString() }}</template></Column>
+            <Column header="Last used"><template #body="{ data: p }">{{ p.lastUsedAt ? new Date(p.lastUsedAt).toLocaleString() : 'never' }}</template></Column>
+            <Column header="">
+              <template #body="{ data: p }"><Tag v-if="p.synced" value="synced" severity="secondary" /></template>
+            </Column>
+            <Column style="width: 4rem; text-align: right">
+              <template #body="{ data: p }">
+                <Button icon="pi pi-trash" text rounded severity="danger" aria-label="Remove passkey" @click="removePasskey(p)" />
+              </template>
+            </Column>
+          </DataTable>
+          <form v-if="passkeyApi.supported.value" class="row" @submit.prevent="addPasskey">
+            <InputText v-model="passkeyName" placeholder="Name, e.g. MacBook" style="flex: 1" />
+            <Button type="submit" label="Add a passkey" icon="pi pi-key" :loading="addingPasskey" />
+          </form>
+          <Message v-else severity="secondary" :closable="false">This browser does not support passkeys.</Message>
+        </div>
       </template>
     </Card>
 
