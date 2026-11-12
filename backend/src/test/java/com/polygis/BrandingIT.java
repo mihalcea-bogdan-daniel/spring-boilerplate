@@ -33,7 +33,7 @@ class BrandingIT extends IntegrationTestBase {
                 .andExpect(jsonPath("$.primaryColor").value("indigo"))
                 .andExpect(jsonPath("$.logoUrl").value("https://cdn.example.com/a.svg"));
         mvc.perform(get("/api/auth/branding").with(host(hostOf("brand-b"))))
-                .andExpect(jsonPath("$.primaryColor").value("emerald"))
+                .andExpect(jsonPath("$.primaryColor").value("brand"))
                 .andExpect(jsonPath("$.displayName").doesNotExist());
 
         mvc.perform(put("/api/admin/settings").with(host(hostOf("brand-a"))).header("Authorization", bearer(token))

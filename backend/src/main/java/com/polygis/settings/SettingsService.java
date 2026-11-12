@@ -19,8 +19,8 @@ public class SettingsService {
     public static final String BRAND_PRIMARY_COLOR = "brand.primaryColor";
     public static final String BRAND_LOGO_URL = "brand.logoUrl";
 
-    /** PrimeVue (Aura) palette names a tenant may pick as its primary colour. */
-    public static final Set<String> PALETTES = Set.of("emerald", "green", "lime", "red", "orange", "amber", "yellow",
+    /** Palette names a tenant may pick as its primary colour: the product accent ("brand") or an Aura palette. */
+    public static final Set<String> PALETTES = Set.of("brand", "emerald", "green", "lime", "red", "orange", "amber", "yellow",
             "teal", "cyan", "sky", "blue", "indigo", "violet", "purple", "fuchsia", "pink", "rose", "slate", "zinc");
 
     private final TenantSettingRepository repository;

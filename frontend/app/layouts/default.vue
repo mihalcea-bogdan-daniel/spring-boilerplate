@@ -46,10 +46,13 @@ function onTenantChange(slug: string | null) {
 
 // ------- user menu
 const userMenu = ref()
-const userItems: MenuItem[] = [
+const { $pwa } = useNuxtApp()
+const userItems = computed<MenuItem[]>(() => [
   { label: 'Profile', icon: 'pi pi-user', command: () => navigateTo('/profile') },
+  // shown only when the browser offers installation and the app isn't installed yet
+  { label: 'Install app', icon: 'pi pi-download', visible: !!$pwa?.showInstallPrompt, command: () => $pwa?.install() },
   { label: 'Sign out', icon: 'pi pi-sign-out', command: () => auth.logout() },
-]
+])
 
 // ------- dark mode (persisted in a cookie, applied in app.vue)
 const { isDark: dark, toggle: toggleDark } = useTheme()
@@ -60,7 +63,7 @@ const { isDark: dark, toggle: toggleDark } = useTheme()
     <aside class="shell-sidebar" :class="{ open: sidebarOpen }">
       <div class="shell-brand">
         <img v-if="branding.logoUrl" :src="branding.logoUrl" alt="" style="height: 1.5rem">
-        <i v-else class="pi pi-box" style="color: var(--p-primary-color)" /> {{ appName }}
+        <AppLogo v-else size="1.75rem" /> {{ appName }}
       </div>
       <Menu :model="menu">
         <template #item="{ item, props }">

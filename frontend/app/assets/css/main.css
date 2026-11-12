@@ -7,6 +7,11 @@
 html, body { margin: 0; background: var(--p-surface-50); color: var(--p-text-color); }
 html.app-dark, html.app-dark body { background: var(--p-surface-950); }
 
+/* Links: accent 700 in light mode (the 500 accent is only 3:1 on white), the lighter accent in dark mode */
+a { color: var(--p-primary-700); }
+html.app-dark a { color: var(--p-primary-color); }
+a.p-menu-item-link, a.p-button { color: inherit; }
+
 .center-screen { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
 .auth-card { width: 100%; max-width: 26rem; }
 .stack { display: flex; flex-direction: column; gap: 1rem; }

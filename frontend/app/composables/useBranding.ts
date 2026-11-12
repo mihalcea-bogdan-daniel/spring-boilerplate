@@ -9,7 +9,7 @@ export interface Branding {
 }
 
 const DEFAULTS: Branding = {
-  displayName: null, primaryColor: 'emerald', logoUrl: null, allowSelfRegistration: true, allowSocialLogin: true,
+  displayName: null, primaryColor: 'brand', logoUrl: null, allowSelfRegistration: true, allowSocialLogin: true,
 }
 
 /**

@@ -27,7 +27,7 @@ public class BrandingController {
         Map<String, String> all = settings.all();
         String color = all.get(SettingsService.BRAND_PRIMARY_COLOR);
         return new Branding(all.get("general.displayName"),
-                color == null || color.isBlank() ? "emerald" : color,
+                color == null || color.isBlank() ? "brand" : color,
                 all.get(SettingsService.BRAND_LOGO_URL),
                 !"false".equals(all.get(SettingsService.ALLOW_SELF_REGISTRATION)),
                 !"false".equals(all.get(SettingsService.ALLOW_SOCIAL_LOGIN)));

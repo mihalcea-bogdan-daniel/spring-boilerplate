@@ -6,13 +6,14 @@ const { request, pending: saving } = useRequest()
 
 const { data, pending, error, refresh } = useApi<Record<string, string | null>>('/admin/settings', { server: false })
 
-const form = reactive({ displayName: '', primaryColor: 'emerald', logoUrl: '', allowSelfRegistration: true, allowSocialLogin: true })
+const form = reactive({ displayName: '', primaryColor: 'brand', logoUrl: '', allowSelfRegistration: true, allowSocialLogin: true })
 const branding = useBranding()
-const palettes = ['emerald', 'green', 'lime', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose', 'red', 'orange', 'amber', 'yellow', 'slate', 'zinc']
+// 'brand' is the product accent (app/theme/brand.ts); the rest are Aura palettes
+const palettes = ['brand', 'emerald', 'green', 'lime', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose', 'red', 'orange', 'amber', 'yellow', 'slate', 'zinc']
 watch(data, (s) => {
   if (!s) return
   form.displayName = s['general.displayName'] ?? ''
-  form.primaryColor = s['brand.primaryColor'] ?? 'emerald'
+  form.primaryColor = s['brand.primaryColor'] ?? 'brand'
   form.logoUrl = s['brand.logoUrl'] ?? ''
   form.allowSelfRegistration = s['auth.allowSelfRegistration'] !== 'false'
   form.allowSocialLogin = s['auth.allowSocialLogin'] !== 'false'

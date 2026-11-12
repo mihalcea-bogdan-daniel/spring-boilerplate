@@ -30,6 +30,8 @@
   "devDependencies": {
     "@nuxt/eslint": "^1.17.0",
     "@sentry/core": "11.10.0",
+    "@vite-pwa/assets-generator": "^1.0.2",
+    "@vite-pwa/nuxt": "^1.1.1",
     "eslint": "^9.39.5",
     "openapi-typescript": "^7.13.0",
     "typescript": "^5.9.3",
