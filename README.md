@@ -2,6 +2,10 @@
 
 Spring Boot 3.5 (Java 17+) · PostgreSQL (schema-per-tenant) · Nuxt 4 · PrimeVue 4 (Aura) · Pinia
 
+**Guides:** setup site in [`docs/index.html`](docs/index.html) (publish with GitHub Pages → *Deploy from branch* →
+`main` / `/docs`) · frontend rules for contributors and coding agents in
+[`frontend/AGENTS.md`](frontend/AGENTS.md) and [`frontend/docs/`](frontend/docs/README.md)
+
 ```
 spring-boilerplate/
 ├── backend/                                   Spring Boot API + Thymeleaf
