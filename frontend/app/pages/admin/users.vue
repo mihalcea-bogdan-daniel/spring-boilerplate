@@ -159,9 +159,11 @@ function remove(u: UserDto) {
       </Column>
       <Column v-if="auth.can('user:write')" header="" style="width: 13rem; text-align: right">
         <template #body="{ data: u }">
-          <Button v-if="canImpersonate && u.status === 'ACTIVE'" v-tooltip.top="'Sign in as this user'" icon="pi pi-user-edit"
+          <Button
+v-if="canImpersonate && u.status === 'ACTIVE'" v-tooltip.top="'Sign in as this user'" icon="pi pi-user-edit"
                   text rounded aria-label="Sign in as this user" @click="impersonate(u)" />
-          <Button v-if="u.status === 'PENDING'" v-tooltip.top="'Resend invitation'" icon="pi pi-send" text rounded
+          <Button
+v-if="u.status === 'PENDING'" v-tooltip.top="'Resend invitation'" icon="pi pi-send" text rounded
                   aria-label="Resend invitation" @click="resendInvite(u)" />
           <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEdit(u)" />
           <Button icon="pi pi-trash" text rounded severity="danger" aria-label="Delete" @click="remove(u)" />

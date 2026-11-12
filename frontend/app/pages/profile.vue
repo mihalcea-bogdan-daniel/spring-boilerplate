@@ -155,7 +155,8 @@ function device(ua: string | null): string {
           <Message v-if="passwordError" severity="error" :closable="false">{{ passwordError }}</Message>
           <div v-if="auth.user?.hasPassword" class="field">
             <label for="p-cur">Current password</label>
-            <Password id="p-cur" v-model="password.current" :feedback="false" toggle-mask
+            <Password
+id="p-cur" v-model="password.current" :feedback="false" toggle-mask
                       autocomplete="current-password" required fluid />
           </div>
           <div class="field">
@@ -165,7 +166,8 @@ function device(ua: string | null): string {
           </div>
           <div class="field">
             <label for="p-conf">Confirm new password</label>
-            <Password id="p-conf" v-model="password.confirm" :feedback="false" toggle-mask
+            <Password
+id="p-conf" v-model="password.confirm" :feedback="false" toggle-mask
                       autocomplete="new-password" required fluid />
           </div>
           <div class="row" style="justify-content: flex-end">

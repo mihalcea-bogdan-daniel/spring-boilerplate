@@ -149,7 +149,8 @@ async function manage(t: TenantDto) {
       </div>
     </div>
 
-    <DataTable :value="data?.content ?? []" :loading="pending" lazy paginator :rows="size"
+    <DataTable
+:value="data?.content ?? []" :loading="pending" lazy paginator :rows="size"
                :total-records="data?.totalElements ?? 0" :rows-per-page-options="[10, 20, 50]" data-key="id" @page="onPage">
       <Column field="name" header="Name" />
       <Column field="slug" header="Slug"><template #body="{ data: t }"><code>{{ t.slug }}</code></template></Column>
@@ -162,7 +163,8 @@ async function manage(t: TenantDto) {
           <Button v-tooltip.top="'Manage users/settings (X-Tenant-ID)'" icon="pi pi-sign-in" text rounded aria-label="Manage" @click="manage(t)" />
           <Button v-tooltip.top="'Status'" icon="pi pi-chart-bar" text rounded aria-label="Status" @click="openStats(t)" />
           <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEdit(t)" />
-          <Button v-if="t.status === 'SUSPENDED'" v-tooltip.top="'Delete tenant and all its data'" icon="pi pi-trash" text rounded
+          <Button
+v-if="t.status === 'SUSPENDED'" v-tooltip.top="'Delete tenant and all its data'" icon="pi pi-trash" text rounded
                   severity="danger" aria-label="Delete" @click="openDelete(t)" />
         </template>
       </Column>
@@ -233,7 +235,8 @@ async function manage(t: TenantDto) {
         </div>
         <div class="row" style="justify-content: flex-end">
           <Button type="button" label="Cancel" severity="secondary" text @click="deleteDialog = false" />
-          <Button type="submit" label="Delete permanently" severity="danger" icon="pi pi-trash" :loading="deleting"
+          <Button
+type="submit" label="Delete permanently" severity="danger" icon="pi pi-trash" :loading="deleting"
                   :disabled="deleteConfirm !== deleteTarget?.slug" />
         </div>
       </form>

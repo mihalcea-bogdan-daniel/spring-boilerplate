@@ -35,7 +35,8 @@ const severity = (action: string) =>
       </div>
     </div>
 
-    <DataTable :value="data?.content ?? []" :loading="pending" lazy paginator :rows="size"
+    <DataTable
+:value="data?.content ?? []" :loading="pending" lazy paginator :rows="size"
                :total-records="data?.totalElements ?? 0" :rows-per-page-options="[25, 50, 100]" data-key="id"
                size="small" @page="onPage">
       <template #empty>No events recorded.</template>

@@ -47,7 +47,8 @@ async function submit() {
           <InputOtp v-model="code" :length="6" integer-only />
         </div>
         <Button type="submit" label="Verify" :loading="loading" :disabled="useRecovery ? !code : code.length !== 6" fluid />
-        <Button type="button" :label="useRecovery ? 'Use authenticator code' : 'Use a recovery code'" link
+        <Button
+type="button" :label="useRecovery ? 'Use authenticator code' : 'Use a recovery code'" link
                 @click="useRecovery = !useRecovery; code = ''" />
       </form>
     </template>

@@ -46,6 +46,19 @@ spring-boilerplate/
 ├── docker-compose.yml   .env.example
 ```
 
+## What's included beyond the core
+
+| Area | Feature |
+|---|---|
+| Account | Profile, set/change password, active sessions with revoke, TOTP two-factor with recovery codes |
+| Admin | User invitations, soft delete, audit log, API keys (`X-API-Key`), per-tenant branding |
+| Platform | Plans and user quotas (`app.plans.*`), tenant status (schema version, size, usage), offboarding, "sign in as user" |
+| Security | Auth rate limiting, breached-password check, security headers, optional RS256 + JWKS |
+| Operations | LISTEN/NOTIFY registry sync, parallel tenant migrations, per-tenant background jobs, request/tenant/user ids in logs |
+| Quality | Integration tests on embedded PostgreSQL, ArchUnit rules, ESLint, Vitest, generated API types, GitHub Actions CI |
+
+Quality gates: `cd backend && ./gradlew build` and `cd frontend && npm run lint && npm run typecheck && npm test`.
+
 ## How a request finds its tenant
 
 ```

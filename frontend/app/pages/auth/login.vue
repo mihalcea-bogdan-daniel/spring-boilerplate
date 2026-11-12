@@ -51,7 +51,8 @@ const providerIcon = (p: string) => ({ google: 'pi pi-google', github: 'pi pi-gi
             <label for="password">Password</label>
             <NuxtLink to="/auth/forgot-password" class="muted">Forgot?</NuxtLink>
           </div>
-          <Password id="password" v-model="form.password" :feedback="false" toggle-mask
+          <Password
+id="password" v-model="form.password" :feedback="false" toggle-mask
                     autocomplete="current-password" required fluid />
         </div>
         <Button type="submit" label="Sign in" icon="pi pi-sign-in" :loading="loading" fluid />
@@ -59,7 +60,8 @@ const providerIcon = (p: string) => ({ google: 'pi pi-google', github: 'pi pi-gi
 
         <Divider v-if="providers.length" align="center"><span class="muted">or continue with</span></Divider>
         <div class="grid-2">
-          <Button v-for="p in providers" :key="p" :icon="providerIcon(p)" :label="p" severity="contrast" outlined
+          <Button
+v-for="p in providers" :key="p" :icon="providerIcon(p)" :label="p" severity="contrast" outlined
                   style="text-transform: capitalize" @click="auth.startSocialLogin(p, redirect)" />
         </div>
       </form>

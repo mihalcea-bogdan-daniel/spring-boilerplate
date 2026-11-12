@@ -8,7 +8,9 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
-    "gen:api": "openapi-typescript ../backend/build/openapi.json -o app/types/api.generated.ts"
+    "gen:api": "openapi-typescript ../backend/build/openapi.json -o app/types/api.generated.ts",
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@pinia/nuxt": "^0.11.3",
@@ -24,8 +26,11 @@
     "vue-router": "^4.6.3"
   },
   "devDependencies": {
+    "@nuxt/eslint": "^1.17.0",
+    "eslint": "^9.39.5",
     "openapi-typescript": "^7.13.0",
     "typescript": "^5.9.3",
+    "vitest": "^3.2.7",
     "vue-tsc": "^3.1.0"
   }
 }
