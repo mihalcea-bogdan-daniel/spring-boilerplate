@@ -16,7 +16,19 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
-  modules: ['@pinia/nuxt', '@primevue/nuxt-module', '@nuxt/eslint'],
+  modules: ['@pinia/nuxt', '@primevue/nuxt-module', '@nuxt/eslint', '@sentry/nuxt/module'],
+
+  // Build-time Sentry options: source maps are uploaded only when SENTRY_AUTH_TOKEN is present in CI.
+  sentry: {
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    authToken: process.env.SENTRY_AUTH_TOKEN,
+    sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+    telemetry: false,
+  },
+
+  // Hidden source maps: generated for Sentry, not referenced from the served files.
+  sourcemap: { client: process.env.SENTRY_AUTH_TOKEN ? 'hidden' : false },
 
   css: ['primeicons/primeicons.css', '~/assets/css/main.css'],
 
@@ -45,6 +57,8 @@ export default defineNuxtConfig({
       tenantHeader: 'X-Tenant-ID',
       appName: 'Boilerplate',
       oauth2Providers: ['google', 'github'],
+      // NUXT_PUBLIC_SENTRY_DSN etc.; empty DSN = Sentry off
+      sentry: { dsn: '', environment: 'production', release: '', tracesSampleRate: 0 },
     },
   },
 

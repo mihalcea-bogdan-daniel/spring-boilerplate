@@ -54,7 +54,7 @@ spring-boilerplate/
 | Admin | User invitations, soft delete, audit log, API keys (`X-API-Key`), per-tenant branding |
 | Platform | Plans and user quotas (`app.plans.*`), tenant status (schema version, size, usage), offboarding, "sign in as user" |
 | Security | Auth rate limiting, breached-password check, security headers, optional RS256 + JWKS |
-| Operations | LISTEN/NOTIFY registry sync, parallel tenant migrations, per-tenant background jobs, request/tenant/user ids in logs |
+| Operations | Sentry error reporting (backend + Nuxt, opt-in via DSN), LISTEN/NOTIFY registry sync, parallel tenant migrations, per-tenant background jobs, request/tenant/user ids in logs |
 | Quality | Integration tests on embedded PostgreSQL, ArchUnit rules, ESLint, Vitest, generated API types, GitHub Actions CI |
 
 Quality gates: `cd backend && ./gradlew build` and `cd frontend && npm run lint && npm run typecheck && npm test`.
@@ -207,6 +207,14 @@ cd frontend && npm run gen:api
 `app/types/api.generated.ts` (generated, committed) contains every path and schema. The hand-written
 `app/types/api.ts` is still what the pages import; move a type over by re-exporting it, e.g.
 `export type UserDto = Required<components['schemas']['UserDto']>`.
+
+## Error reporting (Sentry)
+
+Set `SENTRY_DSN` (backend) and `NUXT_PUBLIC_SENTRY_DSN` (browser + SSR) to turn it on; without them the SDKs
+stay idle. The backend reports ERROR log events (unhandled 500s, failed jobs, mail give-ups), never expected
+4xx, tagged with `requestId`, `tenant` and the user id. The frontend tags the tenant and user id and collects no
+cookies, headers, bodies or query strings (`app/utils/sentry-privacy.ts`). Source maps are uploaded during
+`npm run build` only when `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` are set.
 
 ## Production checklist
 

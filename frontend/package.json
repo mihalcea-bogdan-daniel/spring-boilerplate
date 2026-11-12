@@ -16,6 +16,7 @@
     "@pinia/nuxt": "^0.11.3",
     "@primeuix/themes": "^1.2.5",
     "@primevue/nuxt-module": "^4.5.5",
+    "@sentry/nuxt": "11.10.0",
     "@simplewebauthn/browser": "^14.0.0",
     "@types/qrcode": "^1.5.6",
     "nuxt": "^4.6.4",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.17.0",
+    "@sentry/core": "11.10.0",
     "eslint": "^9.39.5",
     "openapi-typescript": "^7.13.0",
     "typescript": "^5.9.3",
