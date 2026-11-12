@@ -49,12 +49,8 @@ const userItems: MenuItem[] = [
   { label: 'Sign out', icon: 'pi pi-sign-out', command: () => auth.logout() },
 ]
 
-// ------- dark mode
-const dark = ref(false)
-function toggleDark() {
-  dark.value = !dark.value
-  document.documentElement.classList.toggle('app-dark', dark.value)
-}
+// ------- dark mode (persisted in a cookie, applied in app.vue)
+const { isDark: dark, toggle: toggleDark } = useTheme()
 </script>
 
 <template>
