@@ -14,11 +14,14 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * In-memory index of tenants (by slug and by custom domain) so tenant resolution never hits the DB on the hot
  * path. Uses plain JDBC against {@code public.tenants} to stay independent of the Hibernate tenant session.
- * In a multi-node deployment call {@link #reload()} via a message bus or rely on the periodic refresh.
+ * Other nodes are told about changes through PostgreSQL NOTIFY; the periodic refresh is only a safety net.
  */
 @Slf4j
 @Component
 public class TenantRegistry {
+
+    /** PostgreSQL NOTIFY channel announcing that public.tenants changed. */
+    public static final String CHANNEL = "tenant_registry";
 
     private final JdbcTemplate jdbc;
     private volatile Map<String, TenantInfo> bySlug = Map.of();
@@ -45,6 +48,12 @@ public class TenantRegistry {
         this.bySlug = slugs;
         this.byDomain = domains;
         log.debug("Tenant registry loaded {} tenants", slugs.size());
+    }
+
+    /** Call after changing public.tenants: reloads this node now and tells the others (see TenantRegistryListener). */
+    public void publishChange() {
+        reload();
+        jdbc.execute("NOTIFY " + CHANNEL);
     }
 
     public Optional<TenantInfo> findBySlug(String slug) {

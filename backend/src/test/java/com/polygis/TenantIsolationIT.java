@@ -88,6 +88,24 @@ class TenantIsolationIT extends IntegrationTestBase {
                         .string("X-Content-Type-Options", "nosniff"));
     }
 
+    @Autowired
+    com.polygis.tenancy.TenantRegistry registry;
+
+    @Test
+    void registryPicksUpChangesMadeByAnotherNodeThroughNotify() throws Exception {
+        provisionTenant("iso-notify");
+        // simulate another node suspending the tenant: change the row behind this node's back, then NOTIFY
+        jdbc.update("update public.tenants set status = 'SUSPENDED' where slug = 'iso-notify'");
+        jdbc.execute("NOTIFY tenant_registry");
+
+        long deadline = System.currentTimeMillis() + 5_000;
+        while (registry.requireBySlug("iso-notify").isActive() && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50);
+        }
+        assertThat(registry.requireBySlug("iso-notify").isActive()).isFalse();
+        mvc.perform(get("/api/auth/me").with(host(hostOf("iso-notify")))).andExpect(status().isForbidden());
+    }
+
     @Test
     void unknownHostIsRejected() throws Exception {
         mvc.perform(get("/api/auth/me").with(host("nope.example.com"))).andExpect(status().isNotFound());

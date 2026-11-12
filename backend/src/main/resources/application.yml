@@ -85,6 +85,8 @@ app:
     platform-tenant: platform
     platform-domain: ${APP_PLATFORM_DOMAIN:admin.example.com}
     tenant-header: X-Tenant-ID
+    # Propagate tenant changes to all nodes instantly via PostgreSQL LISTEN/NOTIFY
+    registry-notify: true
     # Only for local development without wildcard DNS: lets anonymous callers pick a tenant via header
     dev-header-fallback: false
     reserved-slugs: [www, api, admin, app, mail, static, public, platform]

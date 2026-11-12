@@ -94,7 +94,7 @@ public class TenantProvisioningService {
             audit.record("tenant.provisioned", "tenant", t.getSlug(), "admin=" + req.adminEmail());
             return t;
         });
-        registry.reload();
+        registry.publishChange();
         mail.sendTenantInvite(req.adminEmail(), req.name(), active.toInfo().host(props.tenancy().baseDomain()));
         log.info("Provisioned tenant {} ({})", active.getSlug(), active.getSchemaName());
         return TenantDto.from(active);
@@ -112,7 +112,7 @@ public class TenantProvisioningService {
             audit.record("tenant.updated", "tenant", tenant.getSlug(), "status=" + req.status());
             return tenant;
         });
-        registry.reload();
+        registry.publishChange();
         return TenantDto.from(t);
     }
 

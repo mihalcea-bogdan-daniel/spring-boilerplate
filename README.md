@@ -168,6 +168,5 @@ then open http://admin.localhost and http://acme.localhost.
 - [ ] Backend reachable **only** from nginx and the Nuxt server — it trusts `X-Forwarded-Host` for tenant resolution
 - [ ] Wildcard TLS certificate (DNS-01) for `*.example.com`; custom domains need their own certs
 - [ ] Rate-limit `/api/auth/**` at nginx (`limit_req`) in addition to the built-in OTP/lockout limits
-- [ ] Multi-node: `TenantRegistry` refreshes every 60 s — publish a reload event (Redis/Postgres `NOTIFY`) for instant propagation
 - [ ] Back up `public` and all `t_*` schemas; `pg_dump -n 't_*'`
 - [ ] Bump the toolchain in `build.gradle` to 21 and set `spring.threads.virtual.enabled=true`
