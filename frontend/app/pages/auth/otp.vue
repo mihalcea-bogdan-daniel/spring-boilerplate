@@ -3,7 +3,9 @@ definePageMeta({ layout: 'auth', public: true })
 
 const auth = useAuthStore()
 const step = ref<'email' | 'code'>('email')
-const email = ref('')
+const route = useRoute()
+// invitation e-mails link to /auth/otp?email=...
+const email = ref(typeof route.query.email === 'string' ? route.query.email : '')
 const code = ref('')
 const loading = ref(false)
 const error = ref<string | null>(null)

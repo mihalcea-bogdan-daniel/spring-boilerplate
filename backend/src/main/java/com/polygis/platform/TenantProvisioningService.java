@@ -74,7 +74,8 @@ public class TenantProvisioningService {
 
         TenantInfo info = tenant.toInfo();
         TenantContext.runAs(info, () -> userAdmin.create(new CreateUserRequest(
-                req.adminEmail(), req.adminFirstName(), req.adminLastName(), null, Set.of(Role.TENANT_ADMIN))));
+                req.adminEmail(), req.adminFirstName(), req.adminLastName(), null, Set.of(Role.TENANT_ADMIN)),
+                false)); // the tenant invitation below replaces the per-user invite
 
         Tenant active = tx.execute(s -> {
             Tenant t = tenants.findById(tenant.getId()).orElseThrow();

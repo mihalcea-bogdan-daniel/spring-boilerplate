@@ -13,6 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.polygis.auth.TokenService;
 import com.polygis.common.ApiException;
 import com.polygis.common.PageResponse;
+import com.polygis.config.AppProperties;
+import com.polygis.mail.MailService;
+import com.polygis.tenancy.TenantContext;
+import com.polygis.tenancy.TenantInfo;
 import com.polygis.user.dto.UserDtos.*;
 
 /** User + role administration inside the current tenant (host tenant, or X-Tenant-ID for super-admins). */
@@ -24,14 +28,19 @@ public class UserAdminService {
     private final PermissionRepository permissions;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokens;
+    private final MailService mail;
+    private final AppProperties props;
 
     public UserAdminService(UserRepository users, RoleRepository roles, PermissionRepository permissions,
-                            PasswordEncoder passwordEncoder, TokenService tokens) {
+                            PasswordEncoder passwordEncoder, TokenService tokens, MailService mail,
+                            AppProperties props) {
         this.users = users;
         this.roles = roles;
         this.permissions = permissions;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
+        this.mail = mail;
+        this.props = props;
     }
 
     // ------------------------------------------------------------- users
@@ -46,8 +55,14 @@ public class UserAdminService {
         return UserDto.from(find(id));
     }
 
+    /** Creates a user and, when no password was chosen for them, e-mails an invitation. */
     @Transactional
     public UserDto create(CreateUserRequest req) {
+        return create(req, true);
+    }
+
+    @Transactional
+    public UserDto create(CreateUserRequest req, boolean sendInvite) {
         if (users.existsByEmailIgnoreCase(req.email())) {
             throw ApiException.conflict("email_taken", "A user with this e-mail already exists");
         }
@@ -55,11 +70,34 @@ public class UserAdminService {
         u.setEmail(req.email().trim().toLowerCase());
         u.setFirstName(req.firstName());
         u.setLastName(req.lastName());
-        if (req.password() != null) u.setPasswordHash(passwordEncoder.encode(req.password()));
-        u.setStatus(UserStatus.ACTIVE);
-        u.setEmailVerified(true); // created by an admin; they vouch for the address
+        boolean invited = req.password() == null || req.password().isBlank();
+        if (invited) {
+            // Invited users activate themselves by signing in with an e-mail code (proves inbox ownership).
+            u.setStatus(UserStatus.PENDING);
+        } else {
+            u.setPasswordHash(passwordEncoder.encode(req.password()));
+            u.setStatus(UserStatus.ACTIVE);
+            u.setEmailVerified(true); // the admin chose the credentials and vouches for the address
+        }
         u.setRoles(resolveRoles(req.roles() == null || req.roles().isEmpty() ? Set.of(Role.USER) : req.roles()));
-        return UserDto.from(users.save(u));
+        users.save(u);
+        if (invited && sendInvite) sendInvite(u);
+        return UserDto.from(u);
+    }
+
+    /** Re-sends the invitation to a user who has not signed in yet. */
+    @Transactional(readOnly = true)
+    public void resendInvite(UUID id) {
+        User u = find(id);
+        if (u.getStatus() != UserStatus.PENDING) {
+            throw ApiException.badRequest("already_active", "This user has already activated their account");
+        }
+        sendInvite(u);
+    }
+
+    private void sendInvite(User u) {
+        TenantInfo tenant = TenantContext.require();
+        mail.sendUserInvite(u.getEmail(), u.displayName(), tenant.host(props.tenancy().baseDomain()));
     }
 
     @Transactional

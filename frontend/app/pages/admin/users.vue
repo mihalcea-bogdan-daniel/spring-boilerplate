@@ -72,6 +72,15 @@ async function save() {
   }
 }
 
+async function resendInvite(u: UserDto) {
+  try {
+    await $api(`/admin/users/${u.id}/invite`, { method: 'POST' })
+    toast.add({ severity: 'success', summary: `Invitation sent to ${u.email}`, life: 3000 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
+  }
+}
+
 function remove(u: UserDto) {
   confirm.require({
     message: `Delete ${u.email}? This cannot be undone.`,
@@ -135,8 +144,10 @@ function remove(u: UserDto) {
       <Column field="lastLoginAt" header="Last login" sortable>
         <template #body="{ data: u }">{{ u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '—' }}</template>
       </Column>
-      <Column v-if="auth.can('user:write')" header="" style="width: 7rem; text-align: right">
+      <Column v-if="auth.can('user:write')" header="" style="width: 10rem; text-align: right">
         <template #body="{ data: u }">
+          <Button v-if="u.status === 'PENDING'" v-tooltip.top="'Resend invitation'" icon="pi pi-send" text rounded
+                  aria-label="Resend invitation" @click="resendInvite(u)" />
           <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEdit(u)" />
           <Button icon="pi pi-trash" text rounded severity="danger" aria-label="Delete" @click="remove(u)" />
         </template>
@@ -161,7 +172,7 @@ function remove(u: UserDto) {
           </div>
         </div>
         <div v-if="!form.id" class="field">
-          <label for="u-pw">Initial password <span class="muted">(optional — otherwise e-mail code / social)</span></label>
+          <label for="u-pw">Initial password <span class="muted">(optional — leave empty to e-mail an invitation)</span></label>
           <Password id="u-pw" v-model="form.password" toggle-mask :invalid="!!errors.password" fluid />
           <small v-if="errors.password" class="error">{{ errors.password }}</small>
         </div>

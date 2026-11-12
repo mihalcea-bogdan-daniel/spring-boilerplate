@@ -52,6 +52,13 @@ public class UserAdminController {
         return service.update(id, req);
     }
 
+    @PostMapping("/users/{id}/invite")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @PreAuthorize("hasAuthority('user:write')")
+    public void resendInvite(@PathVariable UUID id) {
+        service.resendInvite(id);
+    }
+
     @DeleteMapping("/users/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('user:write')")

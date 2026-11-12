@@ -45,4 +45,28 @@ class AccountIT extends IntegrationTestBase {
                 .andExpect(status().isNoContent());
         login(host, email, "SecondPassw0rd!");
     }
+
+    @Test
+    void adminInvitesUserWhoActivatesWithEmailCode() throws Exception {
+        String admin = provisionTenant("acct-invite");
+        String host = hostOf("acct-invite");
+        String adminToken = accessToken(otpLogin(host, admin));
+
+        var created = mvc.perform(jsonPost("/api/admin/users", Map.of("email", "new@acct-invite.test"))
+                        .with(host(host)).header("Authorization", bearer(adminToken)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING")).andReturn();
+        org.mockito.Mockito.verify(mail).sendUserInvite(org.mockito.ArgumentMatchers.eq("new@acct-invite.test"),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(host));
+
+        String id = body(created).get("id").asText();
+        mvc.perform(jsonPost("/api/admin/users/" + id + "/invite", Map.of())
+                .with(host(host)).header("Authorization", bearer(adminToken))).andExpect(status().isAccepted());
+
+        var session = otpLogin(host, "new@acct-invite.test");
+        org.assertj.core.api.Assertions.assertThat(body(session).at("/user/roles/0").asText()).isEqualTo("USER");
+        mvc.perform(jsonPost("/api/admin/users/" + id + "/invite", Map.of())
+                        .with(host(host)).header("Authorization", bearer(adminToken)))
+                .andExpect(status().isBadRequest());
+    }
 }

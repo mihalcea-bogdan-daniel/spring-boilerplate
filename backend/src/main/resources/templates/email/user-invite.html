@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body style="margin:0;">
+<table th:replace="~{fragments/email-layout :: layout(~{::td.content})}">
+    <tr>
+        <td class="content" style="font-size:15px;line-height:1.6;">
+            <p>Hi <span th:text="${name}">there</span>,</p>
+            <p>An administrator created an account for you on
+                <strong th:text="${tenantHost}">acme.example.com</strong>.</p>
+            <p style="text-align:center;margin:24px 0;">
+                <a th:href="|https://${tenantHost}/auth/otp?email=${#uris.escapeQueryParam(email)}|"
+                   style="background:#10b981;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;">
+                    Activate my account</a>
+            </p>
+            <p>You will receive a one-time code to sign in; afterwards you can set a password from your profile.</p>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

@@ -61,6 +61,11 @@ public class MailService {
                 Map.of("name", name, "tenantHost", tenantHost));
     }
 
+    public void sendUserInvite(String to, String name, String tenantHost) {
+        send(to, "You have been invited to " + props.mail().productName(), "email/user-invite",
+                Map.of("name", name, "email", to, "tenantHost", tenantHost));
+    }
+
     public void sendTenantInvite(String to, String tenantName, String tenantHost) {
         send(to, "Your workspace " + tenantName + " is ready", "email/tenant-invite",
                 Map.of("tenantName", tenantName, "tenantHost", tenantHost));
