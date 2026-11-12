@@ -145,6 +145,13 @@ cd backend && ./gradlew bootRun
 cd frontend && npm install && npm run dev
 ```
 
+Want data to click through? Start the backend with demo tenants `acme` and `globex` (six users each,
+`admin@acme.test` / `Demo-Passw0rd!`):
+
+```bash
+cd backend && ./gradlew bootRun --args='--app.seed=true'
+```
+
 * Super-admin: http://admin.localhost:3000 — `superadmin@admin.localhost` / `ChangeMe!123` (dev profile defaults)
 * Provision a tenant `acme` from *Platform → Tenants*, then open http://acme.localhost:3000
 * Read e-mails (OTP codes, invites) at http://localhost:8025
