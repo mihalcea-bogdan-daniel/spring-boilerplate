@@ -102,6 +102,12 @@ const { isDark: dark, toggle: toggleDark } = useTheme()
           <Menu ref="userMenu" :model="userItems" popup />
         </div>
       </header>
+      <Message v-if="auth.user?.impersonatedBy" severity="warn" :closable="false" style="margin: 1rem 1.5rem 0">
+        <div class="row-between">
+          <span>You are signed in as <strong>{{ auth.user.email }}</strong> on behalf of {{ auth.user.impersonatedBy }}. Everything you do is audited.</span>
+          <Button label="End session" size="small" severity="warn" @click="auth.logout()" />
+        </div>
+      </Message>
       <main class="shell-content">
         <slot />
       </main>

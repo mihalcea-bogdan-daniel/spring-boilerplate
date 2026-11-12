@@ -103,6 +103,11 @@ export const useAuthStore = defineStore('auth', () => {
     setSession(await nuxtApp.$api<TokenResponse>('/auth/oauth2/exchange', { method: 'POST', body: { code } }))
   }
 
+  /** "Sign in as user" landing: /auth/callback?impersonate=... (access token only, no refresh cookie). */
+  async function exchangeImpersonationCode(code: string) {
+    setSession(await nuxtApp.$api<TokenResponse>('/auth/impersonation/exchange', { method: 'POST', body: { code } }))
+  }
+
   /** Full-page redirect into Spring's OAuth2 flow on the current (tenant) host. */
   function startSocialLogin(provider: string, redirect = '/') {
     const base = useRuntimeConfig().public.apiBase
@@ -157,6 +162,6 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     accessToken, user, mfaToken, verifyMfa, isAuthenticated, isSuperAdmin, displayName, can,
     setSession, clearSession, login, register, verifyEmail, resendVerification, requestOtp, verifyOtp,
-    forgotPassword, resetPassword, exchangeOAuth2Code, startSocialLogin, refresh, fetchMe, ensureSession, updateProfile, changePassword, logout,
+    forgotPassword, resetPassword, exchangeOAuth2Code, exchangeImpersonationCode, startSocialLogin, refresh, fetchMe, ensureSession, updateProfile, changePassword, logout,
   }
 })

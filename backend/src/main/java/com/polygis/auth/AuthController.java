@@ -95,6 +95,12 @@ public class AuthController {
         return respond(auth.exchangeOAuth2Code(req.code(), client(http)), res);
     }
 
+    /** Landing step of "sign in as user": no refresh cookie is set, the session ends with the access token. */
+    @PostMapping("/impersonation/exchange")
+    public TokenResponse exchangeImpersonation(@Valid @RequestBody ExchangeRequest req) {
+        return auth.exchangeImpersonationCode(req.code());
+    }
+
     @PostMapping("/refresh")
     public TokenResponse refresh(HttpServletRequest http, HttpServletResponse res) {
         try {
@@ -114,7 +120,8 @@ public class AuthController {
 
     @GetMapping("/me")
     public MeResponse me(@AuthenticationPrincipal Jwt jwt) {
-        return auth.me(java.util.UUID.fromString(jwt.getSubject()), jwt.getClaimAsString(JwtClaims.TENANT));
+        return auth.me(java.util.UUID.fromString(jwt.getSubject()), jwt.getClaimAsString(JwtClaims.TENANT),
+                jwt.getClaimAsString(JwtClaims.ACTOR));
     }
 
     private Object respondOrChallenge(AuthService.AuthResult result, HttpServletResponse res) {

@@ -30,6 +30,9 @@ public class OneTimeToken {
     @Column(nullable = false)
     private int attempts;
 
+    @Column(length = 320)
+    private String data;
+
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 

@@ -6,9 +6,12 @@ import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.polygis.audit.AuditService;
+import com.polygis.auth.OtpService;
 import com.polygis.common.ApiException;
+import com.polygis.user.UserRepository;
 import com.polygis.common.PageResponse;
 import com.polygis.config.AppProperties;
 import com.polygis.mail.MailService;
@@ -37,10 +40,13 @@ public class TenantProvisioningService {
     private final TransactionTemplate tx;
     private final AppProperties props;
     private final AuditService audit;
+    private final OtpService otp;
+    private final UserRepository users;
 
     public TenantProvisioningService(TenantRepository tenants, TenantSchemaMigrator migrator,
                                      TenantRegistry registry, UserAdminService userAdmin, MailService mail,
-                                     TransactionTemplate tx, AppProperties props, AuditService audit) {
+                                     TransactionTemplate tx, AppProperties props, AuditService audit,
+                                     OtpService otp, UserRepository users) {
         this.tenants = tenants;
         this.migrator = migrator;
         this.registry = registry;
@@ -49,6 +55,8 @@ public class TenantProvisioningService {
         this.tx = tx;
         this.props = props;
         this.audit = audit;
+        this.otp = otp;
+        this.users = users;
     }
 
     public PageResponse<TenantDto> search(String q, Pageable pageable) {
@@ -106,6 +114,23 @@ public class TenantProvisioningService {
         });
         registry.reload();
         return TenantDto.from(t);
+    }
+
+    /** @return URL on the tenant host that starts the impersonated session */
+    public String impersonate(String slug, UUID userId, String actorEmail) {
+        if (props.tenancy().platformTenant().equals(slug)) {
+            throw ApiException.forbidden("platform_tenant", "Platform accounts cannot be impersonated");
+        }
+        TenantInfo target = registry.requireBySlug(slug);
+        String code = TenantContext.callAs(target, () -> tx.execute(s -> {
+            if (!users.existsById(userId)) throw ApiException.notFound("User");
+            audit.record("user.impersonation_started", "user", userId, null);
+            return otp.issueImpersonationCode(userId, actorEmail);
+        }));
+        return UriComponentsBuilder
+                .fromUriString(props.security().oauth2().frontendCallback()
+                        .replace("{host}", target.host(props.tenancy().baseDomain())))
+                .queryParam("impersonate", code).build().encode().toUriString();
     }
 
     /** Re-run pending tenant migrations (e.g. retry a failed provisioning). */

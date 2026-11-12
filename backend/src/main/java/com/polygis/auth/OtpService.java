@@ -77,6 +77,29 @@ public class OtpService {
         return token.getUserId();
     }
 
+    /** One-time code a super-admin's browser carries to the tenant host to start an impersonated session. */
+    @Transactional
+    public String issueImpersonationCode(UUID userId, String actorEmail) {
+        String code = Hashing.randomToken(32);
+        OneTimeToken t = new OneTimeToken();
+        t.setUserId(userId);
+        t.setPurpose(OtpPurpose.IMPERSONATION);
+        t.setCodeHash(Hashing.sha256(code));
+        t.setData(actorEmail);
+        t.setExpiresAt(Instant.now().plus(Duration.ofSeconds(60)));
+        repository.save(t);
+        return code;
+    }
+
+    @Transactional
+    public OneTimeToken consumeImpersonationCode(String code) {
+        OneTimeToken token = repository.findByCodeHashAndPurpose(Hashing.sha256(code), OtpPurpose.IMPERSONATION)
+                .filter(OneTimeToken::isActive)
+                .orElseThrow(() -> ApiException.badRequest("code_invalid", "Invalid or expired code"));
+        token.setConsumedAt(Instant.now());
+        return token;
+    }
+
     /** Opaque handle proving "password/e-mail code was correct, second factor still pending" (5 minutes). */
     @Transactional
     public String issueMfaChallenge(UUID userId) {

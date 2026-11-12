@@ -233,6 +233,20 @@ public class AuthService {
         return issue(user, client);
     }
 
+    /**
+     * Starts an impersonated session from the one-time code issued by the platform console. The session is an
+     * access token only (30 minutes, {@code act} claim, no refresh token) and every use is audited.
+     */
+    @Transactional
+    public TokenResponse exchangeImpersonationCode(String code) {
+        OneTimeToken token = otp.consumeImpersonationCode(code);
+        User user = users.findById(token.getUserId())
+                .orElseThrow(() -> ApiException.badRequest("code_invalid", "Invalid code"));
+        TenantInfo tenant = TenantContext.require();
+        return new TokenResponse(tokens.impersonationToken(user, tenant, token.getData()),
+                TokenService.IMPERSONATION_TTL.toSeconds(), toMe(user, tenant).withImpersonator(token.getData()));
+    }
+
     public void logout(String refreshToken) {
         if (refreshToken != null) tokens.revoke(refreshToken);
     }
@@ -241,10 +255,10 @@ public class AuthService {
      * Profile of the token owner. Loaded from the token's own tenant: a super-admin may currently be switched
      * into another tenant via X-Tenant-ID, but their account lives in the platform schema.
      */
-    public MeResponse me(UUID userId, String tokenTenant) {
+    public MeResponse me(UUID userId, String tokenTenant, String impersonator) {
         TenantInfo home = registry.requireBySlug(tokenTenant);
         return TenantContext.callAs(home, () -> users.findById(userId)
-                .map(u -> toMe(u, home))
+                .map(u -> toMe(u, home).withImpersonator(impersonator))
                 .orElseThrow(() -> ApiException.unauthorized("user_gone", "User no longer exists")));
     }
 
@@ -265,7 +279,7 @@ public class AuthService {
                 && u.roleNames().contains(Role.SUPER_ADMIN);
         return new MeResponse(u.getId(), u.getEmail(), u.getFirstName(), u.getLastName(), tenant.slug(),
                 u.roleNames(), u.permissionCodes(), superAdmin, u.getPasswordHash() != null,
-                u.isTotpEnabled());
+                u.isTotpEnabled(), null);
     }
 
     // ---------------------------------------------------------------- helpers

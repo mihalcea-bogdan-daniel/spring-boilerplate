@@ -8,6 +8,15 @@ const error = ref<string | null>(typeof route.query.error === 'string' ? route.q
 
 onMounted(async () => {
   if (error.value) return
+  if (typeof route.query.impersonate === 'string') {
+    try {
+      await auth.exchangeImpersonationCode(route.query.impersonate)
+      await navigateTo('/', { replace: true })
+    } catch (e) {
+      error.value = problemOf(e).code ?? 'exchange_failed'
+    }
+    return
+  }
   const code = route.query.code
   if (typeof code !== 'string') {
     error.value = 'missing_code'
@@ -34,7 +43,7 @@ onMounted(async () => {
         <p>Completing sign-in…</p>
       </div>
       <div v-else class="stack">
-        <Message severity="error" :closable="false">Social sign-in failed: {{ error }}</Message>
+        <Message severity="error" :closable="false">Sign-in failed: {{ error }}</Message>
         <Button as="router-link" to="/auth/login" label="Back to sign in" fluid />
       </div>
     </template>

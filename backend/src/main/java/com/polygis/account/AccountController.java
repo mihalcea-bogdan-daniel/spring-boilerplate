@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.polygis.auth.JwtClaims;
 import com.polygis.auth.dto.AuthDtos;
+import com.polygis.common.ApiException;
 import com.polygis.auth.dto.AuthDtos.MeResponse;
 import com.polygis.mfa.MfaService;
 
@@ -47,6 +48,7 @@ public class AccountController {
     @PutMapping("/password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changePassword(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChangePasswordRequest req) {
+        rejectIfImpersonated(jwt);
         accounts.changePassword(userId(jwt), tenant(jwt), req);
     }
 
@@ -58,17 +60,20 @@ public class AccountController {
 
     @PostMapping("/mfa/setup")
     public MfaService.Setup beginMfaSetup(@AuthenticationPrincipal Jwt jwt) {
+        rejectIfImpersonated(jwt);
         return accounts.beginMfaSetup(userId(jwt), tenant(jwt));
     }
 
     @PostMapping("/mfa/enable")
     public RecoveryCodesResponse enableMfa(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody MfaCodeRequest req) {
+        rejectIfImpersonated(jwt);
         return new RecoveryCodesResponse(accounts.enableMfa(userId(jwt), tenant(jwt), req.code()));
     }
 
     @PostMapping("/mfa/disable")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void disableMfa(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody MfaCodeRequest req) {
+        rejectIfImpersonated(jwt);
         accounts.disableMfa(userId(jwt), tenant(jwt), req.code());
     }
 
@@ -87,6 +92,13 @@ public class AccountController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void revokeAllSessions(@AuthenticationPrincipal Jwt jwt) {
         accounts.revokeAllSessions(userId(jwt), tenant(jwt));
+    }
+
+    /** An operator signed in as the user may look around, but never change the user's credentials. */
+    private static void rejectIfImpersonated(Jwt jwt) {
+        if (jwt.getClaimAsString(JwtClaims.ACTOR) != null) {
+            throw ApiException.forbidden("impersonated", "Not allowed in an impersonated session");
+        }
     }
 
     private static UUID userId(Jwt jwt) {

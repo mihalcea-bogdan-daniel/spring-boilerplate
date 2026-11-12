@@ -38,6 +38,8 @@ public class TokenService {
         this.props = props.security().jwt();
     }
 
+    public static final java.time.Duration IMPERSONATION_TTL = java.time.Duration.ofMinutes(30);
+
     public record IssuedTokens(String accessToken, long expiresIn, String refreshToken) {
     }
 
@@ -51,20 +53,30 @@ public class TokenService {
     }
 
     public String accessToken(User user, TenantInfo tenant) {
+        return accessToken(user, tenant, null, props.accessTokenTtl());
+    }
+
+    /** Access token for a super-admin acting as {@code user}: carries {@code act} and has no refresh token. */
+    public String impersonationToken(User user, TenantInfo tenant, String actorEmail) {
+        return accessToken(user, tenant, actorEmail, IMPERSONATION_TTL);
+    }
+
+    private String accessToken(User user, TenantInfo tenant, String actorEmail, java.time.Duration ttl) {
         Instant now = Instant.now();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
                 .issuer(props.issuer())
                 .subject(user.getId().toString())
                 .issuedAt(now)
-                .expiresAt(now.plus(props.accessTokenTtl()))
+                .expiresAt(now.plus(ttl))
                 .id(UUID.randomUUID().toString())
                 .claim(JwtClaims.TOKEN_TYPE, JwtClaims.ACCESS)
                 .claim(JwtClaims.TENANT, tenant.slug())
                 .claim(JwtClaims.EMAIL, user.getEmail())
                 .claim(JwtClaims.NAME, user.displayName())
                 .claim(JwtClaims.ROLES, List.copyOf(user.roleNames()))
-                .claim(JwtClaims.PERMISSIONS, List.copyOf(user.permissionCodes()))
-                .build();
+                .claim(JwtClaims.PERMISSIONS, List.copyOf(user.permissionCodes()));
+        if (actorEmail != null) builder.claim(JwtClaims.ACTOR, actorEmail);
+        JwtClaimsSet claims = builder.build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();
         return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }

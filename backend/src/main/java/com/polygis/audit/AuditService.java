@@ -37,7 +37,10 @@ public class AuditService {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth instanceof JwtAuthenticationToken jwt) {
             e.setActorUserId(UUID.fromString(jwt.getToken().getSubject()));
-            e.setActorEmail(jwt.getToken().getClaimAsString(JwtClaims.EMAIL));
+            String email = jwt.getToken().getClaimAsString(JwtClaims.EMAIL);
+            String impersonator = jwt.getToken().getClaimAsString(JwtClaims.ACTOR);
+            // impersonated sessions are always attributable to the operator behind them
+            e.setActorEmail(impersonator == null ? email : email + " (via " + impersonator + ")");
             e.setActorTenant(jwt.getToken().getClaimAsString(JwtClaims.TENANT));
         }
         repository.save(e);

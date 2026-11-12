@@ -9,6 +9,8 @@ export interface Me {
   superAdmin: boolean
   hasPassword: boolean
   mfaEnabled: boolean
+  /** E-mail of the super-admin when this is an impersonated session, otherwise null. */
+  impersonatedBy: string | null
 }
 
 export interface TokenResponse {

@@ -81,6 +81,19 @@ async function resendInvite(u: UserDto) {
   }
 }
 
+// ---------------------------------------------------------------- super-admin: sign in as user
+const tenantStore = useTenantStore()
+const canImpersonate = computed(() => auth.isSuperAdmin && !!tenantStore.managedTenant)
+async function impersonate(u: UserDto) {
+  try {
+    const { url } = await $api<{ url: string }>(
+      `/platform/tenants/${tenantStore.managedTenant}/impersonate/${u.id}`, { method: 'POST' })
+    window.open(url, '_blank', 'noopener')
+  } catch (e) {
+    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
+  }
+}
+
 function remove(u: UserDto) {
   confirm.require({
     message: `Delete ${u.email}? This cannot be undone.`,
@@ -144,8 +157,10 @@ function remove(u: UserDto) {
       <Column field="lastLoginAt" header="Last login" sortable>
         <template #body="{ data: u }">{{ u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '—' }}</template>
       </Column>
-      <Column v-if="auth.can('user:write')" header="" style="width: 10rem; text-align: right">
+      <Column v-if="auth.can('user:write')" header="" style="width: 13rem; text-align: right">
         <template #body="{ data: u }">
+          <Button v-if="canImpersonate && u.status === 'ACTIVE'" v-tooltip.top="'Sign in as this user'" icon="pi pi-user-edit"
+                  text rounded aria-label="Sign in as this user" @click="impersonate(u)" />
           <Button v-if="u.status === 'PENDING'" v-tooltip.top="'Resend invitation'" icon="pi pi-send" text rounded
                   aria-label="Resend invitation" @click="resendInvite(u)" />
           <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEdit(u)" />

@@ -7,8 +7,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import com.polygis.auth.JwtClaims;
 import com.polygis.common.PageResponse;
 import com.polygis.platform.TenantDtos.*;
 
@@ -42,6 +45,19 @@ public class PlatformTenantController {
     @PutMapping("/{id}")
     public TenantDto update(@PathVariable UUID id, @Valid @RequestBody UpdateTenantRequest req) {
         return service.update(id, req);
+    }
+
+    public record ImpersonationResponse(String url) {
+    }
+
+    /**
+     * "Sign in as user": returns a URL on the tenant's own host carrying a 60-second one-time code. Open it in a
+     * new tab; the session there is limited to 30 minutes and audited in the tenant's log.
+     */
+    @PostMapping("/{slug}/impersonate/{userId}")
+    public ImpersonationResponse impersonate(@PathVariable String slug, @PathVariable UUID userId,
+                                             @AuthenticationPrincipal Jwt jwt) {
+        return new ImpersonationResponse(service.impersonate(slug, userId, jwt.getClaimAsString(JwtClaims.EMAIL)));
     }
 
     @PostMapping("/{id}/migrate")
