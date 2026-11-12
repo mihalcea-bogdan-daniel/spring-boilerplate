@@ -92,6 +92,22 @@ management:
       probes:
         enabled: true
 
+# Error reporting: does nothing until SENTRY_DSN is set.
+sentry:
+  dsn: ${SENTRY_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:production}
+  release: ${SENTRY_RELEASE:}
+  send-default-pii: false           # no IPs, cookies or e-mails; the user is identified by id only
+  traces-sample-rate: ${SENTRY_TRACES_SAMPLE_RATE:0.0}
+  # Events come from ERROR log lines (unhandled 500s, failed jobs, mail give-ups...). The MVC resolver runs
+  # after GlobalExceptionHandler, so expected 4xx (validation, auth, ApiException) are never reported.
+  exception-resolver-order: 1
+  logging:
+    minimum-event-level: error
+    minimum-breadcrumb-level: info
+  # MDC values (set by TenantResolutionFilter/TenantAccessFilter) become searchable tags
+  context-tags: requestId,tenant,user
+
 springdoc:
   api-docs:
     path: /api/docs
@@ -185,6 +201,9 @@ spring:
   config:
     activate:
       on-profile: dev
+
+sentry:
+  environment: development
   thymeleaf:
     cache: false
 
