@@ -160,6 +160,22 @@ class TenantIsolationIT extends IntegrationTestBase {
     }
 
     @Test
+    void statsReportSchemaVersionSizeAndUsage() throws Exception {
+        String admin = provisionTenant("iso-stats");
+        otpLogin(hostOf("iso-stats"), admin);
+        String id = jdbc.queryForObject("select id::text from public.tenants where slug = 'iso-stats'", String.class);
+
+        mvc.perform(get("/api/platform/tenants/" + id + "/stats").with(host(PLATFORM_HOST))
+                        .header("Authorization", bearer(superAdminToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.upToDate").value(true))
+                .andExpect(jsonPath("$.schemaVersion").isNotEmpty())
+                .andExpect(jsonPath("$.users").value(1))
+                .andExpect(jsonPath("$.activeSessions").value(1))
+                .andExpect(jsonPath("$.sizeBytes").value(org.hamcrest.Matchers.greaterThan(0)));
+    }
+
+    @Test
     void unknownHostIsRejected() throws Exception {
         mvc.perform(get("/api/auth/me").with(host("nope.example.com"))).andExpect(status().isNotFound());
     }

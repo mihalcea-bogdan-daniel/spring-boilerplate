@@ -47,6 +47,11 @@ public class PlatformTenantController {
         return service.update(id, req);
     }
 
+    @GetMapping("/{id}/stats")
+    public TenantStatsDto stats(@PathVariable UUID id) {
+        return service.stats(id);
+    }
+
     /** Permanently deletes a suspended tenant and its schema. {@code confirm} must repeat the slug. */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

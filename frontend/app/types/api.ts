@@ -76,6 +76,17 @@ export interface TenantDto {
   createdAt: string
 }
 
+export interface TenantStatsDto {
+  slug: string
+  schemaVersion: string | null
+  latestVersion: string | null
+  upToDate: boolean
+  lastMigratedAt: string | null
+  sizeBytes: number
+  users: number
+  activeSessions: number
+}
+
 export interface SessionDto {
   id: string
   userAgent: string | null

@@ -164,6 +164,31 @@ public class TenantProvisioningService {
                 .queryParam("impersonate", code).build().encode().toUriString();
     }
 
+    /** Schema version, size and usage of one tenant, read straight from its schema. */
+    public TenantStatsDto stats(UUID id) {
+        Tenant t = tenants.findById(id).orElseThrow(() -> ApiException.notFound("Tenant"));
+        String schema = "\"" + TenantSchemas.requireValidSchema(t.getSchemaName()) + "\"";
+        String platformSchema = "\"" + TenantSchemas.schemaFor(props.tenancy().platformTenant()) + "\"";
+        String versionSql = "select version from %s.flyway_schema_history where success and version is not null "
+                + "order by installed_rank desc limit 1";
+        String version = jdbc.query(versionSql.formatted(schema), rs -> rs.next() ? rs.getString(1) : null);
+        String latest = jdbc.query(versionSql.formatted(platformSchema), rs -> rs.next() ? rs.getString(1) : null);
+        java.sql.Timestamp migratedAt = jdbc.query(
+                "select max(installed_on) from %s.flyway_schema_history where success".formatted(schema),
+                rs -> rs.next() ? rs.getTimestamp(1) : null);
+        Long size = jdbc.queryForObject("select coalesce(sum(pg_total_relation_size(c.oid)), 0) "
+                + "from pg_class c join pg_namespace n on n.oid = c.relnamespace "
+                + "where n.nspname = ? and c.relkind = 'r'", Long.class, t.getSchemaName());
+        Long userCount = jdbc.queryForObject(
+                "select count(*) from %s.users where deleted_at is null".formatted(schema), Long.class);
+        Long sessions = jdbc.queryForObject(
+                "select count(*) from %s.refresh_tokens where revoked_at is null and expires_at > now()"
+                        .formatted(schema), Long.class);
+        return new TenantStatsDto(t.getSlug(), version, latest, version != null && version.equals(latest),
+                migratedAt == null ? null : migratedAt.toInstant(), size == null ? 0 : size,
+                userCount == null ? 0 : userCount, sessions == null ? 0 : sessions);
+    }
+
     /** Re-run pending tenant migrations (e.g. retry a failed provisioning). */
     public void migrate(UUID id) {
         Tenant t = tenants.findById(id).orElseThrow(() -> ApiException.notFound("Tenant"));

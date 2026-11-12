@@ -25,6 +25,15 @@ public final class TenantDtos {
         }
     }
 
+    /**
+     * Operational snapshot of one tenant schema.
+     *
+     * @param upToDate true when the schema is at the same migration version as the platform schema
+     */
+    public record TenantStatsDto(String slug, String schemaVersion, String latestVersion, boolean upToDate,
+                                 Instant lastMigratedAt, long sizeBytes, long users, long activeSessions) {
+    }
+
     public record CreateTenantRequest(
             @NotBlank @Pattern(regexp = "^[a-z][a-z0-9-]{1,40}[a-z0-9]$",
                     message = "lowercase letters, digits and dashes (3-42 chars)") String slug,

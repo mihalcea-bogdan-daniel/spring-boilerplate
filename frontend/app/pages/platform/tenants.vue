@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DataTablePageEvent } from 'primevue/datatable'
-import type { PageResponse, TenantDto, TenantStatus } from '~/types/api'
+import type { PageResponse, TenantDto, TenantStatsDto, TenantStatus } from '~/types/api'
 
 definePageMeta({ superAdminOnly: true })
 
@@ -65,6 +65,43 @@ async function saveEdit() {
   }
 }
 
+// --------------------------------------------------- status (schema version, size, usage)
+const statsDialog = ref(false)
+const stats = ref<TenantStatsDto | null>(null)
+const statsTenant = ref<TenantDto | null>(null)
+const migrating = ref(false)
+async function openStats(t: TenantDto) {
+  statsTenant.value = t
+  stats.value = null
+  statsDialog.value = true
+  try {
+    stats.value = await $api<TenantStatsDto>(`/platform/tenants/${t.id}/stats`)
+  } catch (e) {
+    statsDialog.value = false
+    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
+  }
+}
+async function migrateNow() {
+  if (!statsTenant.value) return
+  migrating.value = true
+  try {
+    await $api(`/platform/tenants/${statsTenant.value.id}/migrate`, { method: 'POST' })
+    stats.value = await $api<TenantStatsDto>(`/platform/tenants/${statsTenant.value.id}/stats`)
+  } catch (e) {
+    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
+  } finally {
+    migrating.value = false
+  }
+}
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let value = bytes / 1024
+  let i = 0
+  while (value >= 1024 && i < units.length - 1) { value /= 1024; i++ }
+  return `${value.toFixed(1)} ${units[i]}`
+}
+
 // --------------------------------------------------- offboarding (only suspended tenants)
 const deleteDialog = ref(false)
 const deleting = ref(false)
@@ -118,9 +155,10 @@ async function manage(t: TenantDto) {
       <Column field="domain" header="Custom domain"><template #body="{ data: t }">{{ t.domain ?? '—' }}</template></Column>
       <Column field="schemaName" header="Schema"><template #body="{ data: t }"><code>{{ t.schemaName }}</code></template></Column>
       <Column field="status" header="Status"><template #body="{ data: t }"><Tag :value="t.status" :severity="severity(t.status)" /></template></Column>
-      <Column style="width: 14rem; text-align: right">
+      <Column style="width: 17rem; text-align: right">
         <template #body="{ data: t }">
           <Button v-tooltip.top="'Manage users/settings (X-Tenant-ID)'" icon="pi pi-sign-in" text rounded aria-label="Manage" @click="manage(t)" />
+          <Button v-tooltip.top="'Status'" icon="pi pi-chart-bar" text rounded aria-label="Status" @click="openStats(t)" />
           <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEdit(t)" />
           <Button v-if="t.status === 'SUSPENDED'" v-tooltip.top="'Delete tenant and all its data'" icon="pi pi-trash" text rounded
                   severity="danger" aria-label="Delete" @click="openDelete(t)" />
@@ -159,6 +197,26 @@ async function manage(t: TenantDto) {
           <Button type="submit" label="Provision" icon="pi pi-server" :loading="creating" />
         </div>
       </form>
+    </Dialog>
+
+    <Dialog v-model:visible="statsDialog" :header="`Status — ${statsTenant?.name ?? ''}`" modal :style="{ width: '28rem' }">
+      <div v-if="!stats" class="row" style="justify-content: center"><ProgressSpinner style="width: 2.5rem; height: 2.5rem" /></div>
+      <div v-else class="stack">
+        <div class="row-between">
+          <span>Schema version</span>
+          <span class="row">
+            <code>{{ stats.schemaVersion ?? '—' }}</code>
+            <Tag :value="stats.upToDate ? 'up to date' : `behind (latest ${stats.latestVersion})`" :severity="stats.upToDate ? 'success' : 'warn'" />
+          </span>
+        </div>
+        <div class="row-between"><span>Last migrated</span><span>{{ stats.lastMigratedAt ? new Date(stats.lastMigratedAt).toLocaleString() : '—' }}</span></div>
+        <div class="row-between"><span>Data size</span><span>{{ formatBytes(stats.sizeBytes) }}</span></div>
+        <div class="row-between"><span>Users</span><span>{{ stats.users }}</span></div>
+        <div class="row-between"><span>Active sessions</span><span>{{ stats.activeSessions }}</span></div>
+        <div v-if="!stats.upToDate" class="row" style="justify-content: flex-end">
+          <Button label="Run migrations" icon="pi pi-database" :loading="migrating" @click="migrateNow" />
+        </div>
+      </div>
     </Dialog>
 
     <Dialog v-model:visible="deleteDialog" header="Delete tenant" modal :style="{ width: '30rem' }">
