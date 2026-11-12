@@ -3,6 +3,7 @@ import type { MenuItem } from 'primevue/menuitem'
 import type { PageResponse, TenantDto } from '~/types/api'
 
 const auth = useAuthStore()
+const { t } = useI18n()
 const tenant = useTenantStore()
 const { $api } = useNuxtApp()
 const { name: appName, branding } = useBranding()
@@ -12,31 +13,32 @@ watch(() => route.fullPath, () => { sidebarOpen.value = false })
 
 const menu = computed<MenuItem[]>(() => {
   const items: MenuItem[] = [
-    { label: 'Dashboard', icon: 'pi pi-home', route: '/' },
+    { label: t('layout.dashboard'), icon: 'pi pi-home', route: '/' },
   ]
   const admin: MenuItem[] = [
-    { label: 'Users', icon: 'pi pi-users', route: '/admin/users', visible: auth.can('user:read') },
-    { label: 'Roles', icon: 'pi pi-shield', route: '/admin/roles', visible: auth.can('role:read') },
-    { label: 'Settings', icon: 'pi pi-cog', route: '/admin/settings', visible: auth.can('settings:read') },
-    { label: 'API keys', icon: 'pi pi-key', route: '/admin/api-keys', visible: auth.can('apikey:manage') },
-    { label: 'Audit log', icon: 'pi pi-history', route: '/admin/audit', visible: auth.can('audit:read') },
+    { label: t('layout.users'), icon: 'pi pi-users', route: '/admin/users', visible: auth.can('user:read') },
+    { label: t('layout.roles'), icon: 'pi pi-shield', route: '/admin/roles', visible: auth.can('role:read') },
+    { label: t('layout.settings'), icon: 'pi pi-cog', route: '/admin/settings', visible: auth.can('settings:read') },
+    { label: t('layout.apiKeys'), icon: 'pi pi-key', route: '/admin/api-keys', visible: auth.can('apikey:manage') },
+    { label: t('layout.audit'), icon: 'pi pi-history', route: '/admin/audit', visible: auth.can('audit:read') },
   ]
-  if (admin.some(i => i.visible)) items.push({ label: 'Administration', items: admin })
+  if (admin.some(i => i.visible)) items.push({ label: t('layout.administration'), items: admin })
   if (auth.isSuperAdmin) {
-    items.push({ label: 'Platform', items: [{ label: 'Tenants', icon: 'pi pi-building', route: '/platform/tenants' }] })
+    items.push({ label: t('layout.platform'), items: [{ label: t('layout.tenants'), icon: 'pi pi-building', route: '/platform/tenants' }] })
   }
   return items
 })
 
 // ------- super-admin tenant switcher (drives X-Tenant-ID)
-const tenantOptions = ref<{ label: string, value: string | null }[]>([])
+const otherTenants = ref<TenantDto[]>([])
+const tenantOptions = computed(() => [
+  { label: t('layout.platformOwn'), value: null },
+  ...otherTenants.value.map(x => ({ label: `${x.name} (${x.slug})`, value: x.slug })),
+])
 async function loadTenants() {
   if (!auth.isSuperAdmin) return
   const page = await $api<PageResponse<TenantDto>>('/platform/tenants', { query: { size: 200 } })
-  tenantOptions.value = [
-    { label: 'Platform (own)', value: null },
-    ...page.content.filter(t => t.slug !== auth.user?.tenant).map(t => ({ label: `${t.name} (${t.slug})`, value: t.slug })),
-  ]
+  otherTenants.value = page.content.filter(x => x.slug !== auth.user?.tenant)
 }
 onMounted(loadTenants)
 function onTenantChange(slug: string | null) {
@@ -48,10 +50,10 @@ function onTenantChange(slug: string | null) {
 const userMenu = ref()
 const { $pwa } = useNuxtApp()
 const userItems = computed<MenuItem[]>(() => [
-  { label: 'Profile', icon: 'pi pi-user', command: () => navigateTo('/profile') },
+  { label: t('layout.profile'), icon: 'pi pi-user', command: () => navigateTo('/profile') },
   // shown only when the browser offers installation and the app isn't installed yet
-  { label: 'Install app', icon: 'pi pi-download', visible: !!$pwa?.showInstallPrompt, command: () => $pwa?.install() },
-  { label: 'Sign out', icon: 'pi pi-sign-out', command: () => auth.logout() },
+  { label: t('layout.installApp'), icon: 'pi pi-download', visible: !!$pwa?.showInstallPrompt, command: () => $pwa?.install() },
+  { label: t('layout.signOut'), icon: 'pi pi-sign-out', command: () => auth.logout() },
 ])
 
 // ------- dark mode (persisted in a cookie, applied in app.vue)
@@ -80,15 +82,15 @@ const { isDark: dark, toggle: toggleDark } = useTheme()
     <div class="shell-main">
       <header class="shell-topbar">
         <div class="row">
-          <Button class="only-mobile" icon="pi pi-bars" text rounded aria-label="Menu" @click="sidebarOpen = !sidebarOpen" />
+          <Button class="only-mobile" icon="pi pi-bars" text rounded :aria-label="t('layout.menu')" @click="sidebarOpen = !sidebarOpen" />
           <template v-if="auth.isSuperAdmin">
-            <span class="muted">Managing</span>
+            <span class="muted">{{ t('layout.managing') }}</span>
             <Select
               :model-value="tenant.managedTenant ?? undefined"
               :options="tenantOptions"
               option-label="label"
               option-value="value"
-              placeholder="Platform (own)"
+              :placeholder="t('layout.platformOwn')"
               filter
               style="min-width: 14rem"
               @update:model-value="onTenantChange"
@@ -98,7 +100,8 @@ const { isDark: dark, toggle: toggleDark } = useTheme()
           <Tag v-else :value="auth.user?.tenant" />
         </div>
         <div class="row">
-          <Button :icon="dark ? 'pi pi-sun' : 'pi pi-moon'" text rounded aria-label="Toggle theme" @click="toggleDark" />
+          <LocaleSwitcher />
+          <Button :icon="dark ? 'pi pi-sun' : 'pi pi-moon'" text rounded :aria-label="t('layout.toggleTheme')" @click="toggleDark" />
           <Button text @click="userMenu.toggle($event)">
             <Avatar :label="auth.displayName.charAt(0).toUpperCase()" shape="circle" />
             <span>{{ auth.displayName }}</span>
@@ -109,8 +112,11 @@ const { isDark: dark, toggle: toggleDark } = useTheme()
       </header>
       <Message v-if="auth.user?.impersonatedBy" severity="warn" :closable="false" style="margin: 1rem 1.5rem 0">
         <div class="row-between">
-          <span>You are signed in as <strong>{{ auth.user.email }}</strong> on behalf of {{ auth.user.impersonatedBy }}. Everything you do is audited.</span>
-          <Button label="End session" size="small" severity="warn" @click="auth.logout()" />
+          <i18n-t keypath="layout.impersonating" tag="span">
+            <template #email><strong>{{ auth.user.email }}</strong></template>
+            <template #by>{{ auth.user.impersonatedBy }}</template>
+          </i18n-t>
+          <Button :label="t('layout.endSession')" size="small" severity="warn" @click="auth.logout()" />
         </div>
       </Message>
       <main class="shell-content">

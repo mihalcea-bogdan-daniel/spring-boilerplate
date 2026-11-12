@@ -6,11 +6,11 @@ type ApiOptions = NonNullable<Parameters<typeof $fetch>[1]>
 export interface RequestOptions<T> extends Omit<ApiOptions, 'method'> {
   method?: HttpMethod
   /**
-   * Success toast. Default: none for GET, "Saved"/"Done"/"Deleted" for writes.
-   * A string or `(data) => string` sets the summary; `false` keeps quiet.
+   * Success toast, already translated: `t('users.created')`. Default: none for GET, "Saved"/"Done"/"Deleted"
+   * (in the user's language) for writes. A string or `(data) => string` sets the summary; `false` keeps quiet.
    */
   success?: string | ((data: T) => string) | false
-  /** Error toast summary, e.g. "Could not save the user". The server's `detail` is shown under it. `false` = no toast. */
+  /** Error toast summary, translated: `t('users.saveFailed')`. The server's `detail` is shown under it. `false` = no toast. */
   error?: string | false
 }
 
@@ -22,7 +22,7 @@ export type RequestResult<T> =
  * The one way to call the API from an event handler (save, delete, invite...). It never throws:
  *
  *   const { request, pending, fieldErrors } = useRequest()
- *   const res = await request<UserDto>('/admin/users', { method: 'POST', body: form, success: 'User created' })
+ *   const res = await request<UserDto>('/admin/users', { method: 'POST', body: form, success: t('users.created') })
  *   if (res.ok) dialog.value = false
  *
  * - toasts the outcome with a severity derived from the HTTP status (see utils/feedback.ts)
@@ -34,6 +34,7 @@ export type RequestResult<T> =
 export function useRequest() {
   const { $api } = useNuxtApp()
   const toast = useToast()
+  const { t } = useI18n()
   const inFlight = ref(0)
   const pending = computed(() => inFlight.value > 0)
   const fieldErrors = ref<Record<string, string>>({})
@@ -53,7 +54,7 @@ export function useRequest() {
       })
       if (success !== false) {
         const summary = typeof success === 'function' ? success(data) : success
-        const fb = successFeedback(method, status, summary)
+        const fb = successFeedback(t, method, status, summary)
         if (fb) toast.add(fb)
       }
       return { ok: true, data }
@@ -61,7 +62,7 @@ export function useRequest() {
       const problem = problemOf(e)
       fieldErrors.value = problem.errors ?? {}
       if (error !== false) {
-        const fb = errorFeedback(e, error)
+        const fb = errorFeedback(t, e, error)
         if (fb) toast.add(fb)
       }
       return { ok: false, problem, status: statusOf(e) }
@@ -72,11 +73,11 @@ export function useRequest() {
 
   /**
    * Same error toast for a failure that did not go through request(), e.g. a store action:
-   *   try { await auth.updateProfile(...) } catch (e) { notifyError(e, 'Could not update the profile') }
+   *   try { await auth.updateProfile(...) } catch (e) { notifyError(e, t('profile.updateFailed')) }
    */
   function notifyError(e: unknown, summary?: string) {
     fieldErrors.value = problemOf(e).errors ?? {}
-    const fb = errorFeedback(e, summary)
+    const fb = errorFeedback(t, e, summary)
     if (fb) toast.add(fb)
   }
 

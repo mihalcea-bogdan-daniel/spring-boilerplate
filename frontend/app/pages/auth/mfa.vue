@@ -2,6 +2,8 @@
 /** Second sign-in step for accounts with an authenticator app. The challenge token lives in the auth store. */
 definePageMeta({ layout: 'auth', public: true })
 
+const { t } = useI18n()
+
 const auth = useAuthStore()
 const route = useRoute()
 const code = ref('')
@@ -35,9 +37,9 @@ async function submit() {
 
 <template>
   <Card>
-    <template #title>Two-factor authentication</template>
+    <template #title>{{ t('auth.mfaTitle') }}</template>
     <template #subtitle>
-      {{ useRecovery ? 'Enter one of your recovery codes.' : 'Enter the 6-digit code from your authenticator app.' }}
+      {{ useRecovery ? t('auth.mfaRecoveryHint') : t('auth.mfaCodeHint') }}
     </template>
     <template #content>
       <form class="stack" @submit.prevent="submit">
@@ -46,14 +48,14 @@ async function submit() {
         <div v-else class="row" style="justify-content: center">
           <InputOtp v-model="code" :length="6" integer-only />
         </div>
-        <Button type="submit" label="Verify" :loading="loading" :disabled="useRecovery ? !code : code.length !== 6" fluid />
+        <Button type="submit" :label="t('common.verify')" :loading="loading" :disabled="useRecovery ? !code : code.length !== 6" fluid />
         <Button
-type="button" :label="useRecovery ? 'Use authenticator code' : 'Use a recovery code'" link
+type="button" :label="useRecovery ? t('auth.useAuthenticator') : t('auth.useRecovery')" link
                 @click="useRecovery = !useRecovery; code = ''" />
       </form>
     </template>
     <template #footer>
-      <NuxtLink to="/auth/login" class="muted">Back to sign in</NuxtLink>
+      <NuxtLink to="/auth/login" class="muted">{{ t('auth.backToSignIn') }}</NuxtLink>
     </template>
   </Card>
 </template>

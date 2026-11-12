@@ -5,7 +5,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
-  modules: ['@pinia/nuxt', '@primevue/nuxt-module', '@nuxt/eslint', '@sentry/nuxt/module', '@vite-pwa/nuxt'],
+  modules: ['@pinia/nuxt', '@primevue/nuxt-module', '@nuxt/eslint', '@sentry/nuxt/module', '@vite-pwa/nuxt', '@nuxtjs/i18n'],
 
   app: {
     head: {
@@ -19,6 +19,19 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: themeColor.dark, media: '(prefers-color-scheme: dark)' },
       ],
     },
+  },
+
+  // Every UI string comes from i18n/locales/<code>.json (see AGENTS.md). URLs carry no locale prefix: the
+  // choice is a cookie, first set from the browser's Accept-Language. To add a language, add a line here,
+  // a JSON file next to en.json and, if needed, PrimeVue texts in i18n/primevue.ts.
+  i18n: {
+    strategy: 'no_prefix',
+    defaultLocale: 'en',
+    locales: [
+      { code: 'en', language: 'en-US', name: 'English', file: 'en.json' },
+      { code: 'ro', language: 'ro-RO', name: 'Română', file: 'ro.json' },
+    ],
+    detectBrowserLanguage: { useCookie: true, cookieKey: 'i18n_locale', redirectOn: 'root', fallbackLocale: 'en' },
   },
 
   // Installable app. Icons in public/ are generated from public/logo.svg: `npx pwa-assets-generator`.

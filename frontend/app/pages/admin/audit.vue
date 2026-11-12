@@ -4,6 +4,7 @@ import type { AuditEventDto, PageResponse } from '~/types/api'
 
 definePageMeta({ permission: 'audit:read' })
 
+const { t, d } = useI18n()
 const page = ref(0)
 const size = ref(25)
 const search = ref('')
@@ -25,42 +26,42 @@ const severity = (action: string) =>
 <template>
   <div class="stack">
     <div class="row-between">
-      <h1 class="page-title">Audit log</h1>
+      <h1 class="page-title">{{ t('audit.title') }}</h1>
       <div class="row">
         <IconField>
           <InputIcon class="pi pi-search" />
-          <InputText v-model="search" placeholder="Action, actor or target" />
+          <InputText v-model="search" :placeholder="t('audit.search')" />
         </IconField>
-        <Button icon="pi pi-refresh" text rounded aria-label="Refresh" @click="refresh()" />
+        <Button icon="pi pi-refresh" text rounded :aria-label="t('common.refresh')" @click="refresh()" />
       </div>
     </div>
 
-    <LoadError :error="error" what="the audit log" @retry="refresh()" />
+    <LoadError :error="error" :what="t('audit.what')" @retry="refresh()" />
     <DataTable
       v-if="!error"
 :value="data?.content ?? []" :loading="pending" lazy paginator :rows="size"
                :total-records="data?.totalElements ?? 0" :rows-per-page-options="[25, 50, 100]" data-key="id"
                size="small" @page="onPage">
-      <template #empty>No events recorded.</template>
-      <Column header="When" style="white-space: nowrap">
-        <template #body="{ data: e }">{{ new Date(e.occurredAt).toLocaleString() }}</template>
+      <template #empty>{{ t('audit.empty') }}</template>
+      <Column :header="t('audit.when')" style="white-space: nowrap">
+        <template #body="{ data: e }">{{ d(e.occurredAt, 'datetime') }}</template>
       </Column>
-      <Column header="Action">
+      <Column :header="t('audit.action')">
         <template #body="{ data: e }"><Tag :value="e.action" :severity="severity(e.action)" /></template>
       </Column>
-      <Column header="Actor">
+      <Column :header="t('audit.actor')">
         <template #body="{ data: e }">
           {{ e.actorEmail ?? '—' }}
-          <Tag v-if="e.actorTenant && e.actorTenant === 'platform'" value="platform" severity="warn" />
+          <Tag v-if="e.actorTenant && e.actorTenant === 'platform'" :value="t('layout.platform')" severity="warn" />
         </template>
       </Column>
-      <Column header="Target">
+      <Column :header="t('audit.target')">
         <template #body="{ data: e }">
           <span v-if="e.targetType" class="muted">{{ e.targetType }}</span> <code v-if="e.targetId">{{ e.targetId }}</code>
         </template>
       </Column>
-      <Column field="details" header="Details" />
-      <Column field="ipAddress" header="IP" />
+      <Column field="details" :header="t('audit.details')" />
+      <Column field="ipAddress" :header="t('audit.ip')" />
     </DataTable>
   </div>
 </template>

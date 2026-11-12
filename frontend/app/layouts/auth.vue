@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { name: appName, branding } = useBranding()
 const host = useRequestURL().hostname
+const { t } = useI18n()
 </script>
 
 <template>
@@ -12,7 +13,10 @@ const host = useRequestURL().hostname
         <strong style="font-size: 1.4rem">{{ appName }}</strong>
       </div>
       <slot />
-      <p class="muted" style="text-align: center">Workspace: <code>{{ host }}</code></p>
+      <div class="row" style="justify-content: center">
+        <span class="muted">{{ t('layout.workspace') }} <code>{{ host }}</code></span>
+        <LocaleSwitcher />
+      </div>
     </div>
   </div>
 </template>

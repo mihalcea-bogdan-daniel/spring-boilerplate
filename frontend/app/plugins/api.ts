@@ -38,6 +38,8 @@ export default defineNuxtPlugin({
       // /auth/*, /me and the platform console always act on the user's own (home) tenant
       const isOwnAccountCall = path.startsWith('/auth/') || path === '/me' || path.startsWith('/me/')
         || path.startsWith('/platform/')
+      // lets Spring pick the language of validation messages (LocaleContextHolder)
+      if (!headers.has('Accept-Language')) headers.set('Accept-Language', nuxtApp.$i18n.locale.value)
       if (tenant.headerValue && !isOwnAccountCall) {
         headers.set(config.public.tenantHeader, tenant.headerValue)
       }

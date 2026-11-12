@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'auth', public: true })
 
+const { t } = useI18n()
+
 const auth = useAuthStore()
 const toast = useToast()
 const step = ref<'request' | 'reset'>('request')
@@ -39,25 +41,25 @@ async function reset() {
 
 <template>
   <Card>
-    <template #title>Reset password</template>
+    <template #title>{{ t('auth.resetTitle') }}</template>
     <template #content>
       <Message v-if="error" severity="error" :closable="false" class="mb-3">{{ error }}</Message>
       <form v-if="step === 'request'" class="stack" @submit.prevent="request">
         <div class="field">
-          <label for="email">E-mail</label>
+          <label for="email">{{ t('common.email') }}</label>
           <InputText id="email" v-model="form.email" type="email" required fluid />
         </div>
-        <Button type="submit" label="Send reset code" :loading="loading" fluid />
+        <Button type="submit" :label="t('auth.sendResetCode')" :loading="loading" fluid />
       </form>
       <form v-else class="stack" @submit.prevent="reset">
         <div class="row" style="justify-content: center">
           <InputOtp v-model="form.code" :length="6" integer-only />
         </div>
         <div class="field">
-          <label for="pw">New password</label>
+          <label for="pw">{{ t('auth.newPassword') }}</label>
           <Password id="pw" v-model="form.password" toggle-mask autocomplete="new-password" required fluid />
         </div>
-        <Button type="submit" label="Update password" :loading="loading" fluid />
+        <Button type="submit" :label="t('auth.updatePassword')" :loading="loading" fluid />
       </form>
     </template>
   </Card>
