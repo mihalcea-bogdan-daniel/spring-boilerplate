@@ -13,6 +13,9 @@ import com.polygis.support.IntegrationTestBase;
 
 class MfaIT extends IntegrationTestBase {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    org.springframework.jdbc.core.JdbcTemplate jdbc;
+
     @Test
     void totpIsRequiredAfterEnablingAndRecoveryCodesWorkOnce() throws Exception {
         String email = provisionTenant("mfa-one");
@@ -29,6 +32,10 @@ class MfaIT extends IntegrationTestBase {
                         .with(host(host)).header("Authorization", bearer(token)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.recoveryCodes.length()").value(8)).andReturn());
         String recovery = enabled.get("recoveryCodes").get(0).asText();
+        // the seed is encrypted at rest
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "select totp_secret from t_mfa_one.users where email = ?", String.class, email))
+                .startsWith("v1:").doesNotContain(setup.get("secret").asText());
 
         // first factor now only yields a challenge, no tokens and no refresh cookie
         String challenge = challenge(host, email);

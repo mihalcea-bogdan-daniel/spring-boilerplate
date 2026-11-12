@@ -114,6 +114,9 @@ app:
     reserved-slugs: [www, api, admin, app, mail, static, public, platform]
 
   security:
+    # AES-256 key for secrets stored in the database (TOTP seeds). openssl rand -base64 32
+    # Falls back to a key derived from JWT_SECRET when empty.
+    encryption-key: ${APP_ENCRYPTION_KEY:}
     jwt:
       issuer: ${JWT_ISSUER:boilerplate}
       # HS256 (shared secret) or RS256 (key pair; public key served at /api/auth/jwks.json)

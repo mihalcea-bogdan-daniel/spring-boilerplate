@@ -16,8 +16,7 @@ import com.polygis.user.User;
 /**
  * TOTP second factor with single-use recovery codes. All methods expect to run inside the caller's transaction
  * and tenant (the user's home tenant).
- * <p>The TOTP secret is stored as-is: encrypt the column (pgcrypto / application-level AES-GCM with a KMS key)
- * if your threat model includes database read access.
+ * <p>The TOTP secret is encrypted at rest (AES-GCM, see FieldEncryption).
  */
 @Service
 public class MfaService {

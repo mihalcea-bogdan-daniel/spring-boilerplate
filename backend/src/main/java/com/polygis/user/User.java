@@ -58,7 +58,8 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
-    @Column(name = "totp_secret", length = 64)
+    @Column(name = "totp_secret", length = 255)
+    @Convert(converter = com.polygis.common.EncryptedStringConverter.class)
     private String totpSecret;
 
     @Column(name = "totp_enabled", nullable = false)
