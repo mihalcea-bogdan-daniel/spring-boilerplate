@@ -5,10 +5,11 @@ import java.util.UUID;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.polygis.common.Problems;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -32,13 +33,9 @@ public class AccessTokenRevocationFilter extends OncePerRequestFilter {
             if (revocation.isRevoked(jwt.getClaimAsString(JwtClaims.TENANT), UUID.fromString(jwt.getSubject()),
                     jwt.getIssuedAt())) {
                 SecurityContextHolder.clearContext();
-                response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                // invalid_token makes the SPA refresh: role changes recover silently, revoked sessions go to login
+                    // invalid_token makes the SPA refresh: role changes recover silently, revoked sessions go to login
                 response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer error=\"invalid_token\"");
-                response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-                response.getWriter().write("""
-                        {"type":"about:blank","title":"Unauthorized","status":401,\
-                        "detail":"Session is no longer valid","code":"token_revoked"}""");
+                    Problems.write(response, HttpStatus.UNAUTHORIZED, "token_revoked", "Session is no longer valid");
                 return;
             }
         }

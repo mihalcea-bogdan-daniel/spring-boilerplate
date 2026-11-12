@@ -6,9 +6,10 @@ import java.util.UUID;
 
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.polygis.common.Problems;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -51,14 +52,14 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
             var tenant = resolver.resolve(request);
             if (tenant.isPresent()) {
                 if (!tenant.get().isActive()) {
-                    reject(response, HttpStatus.FORBIDDEN, "Tenant is not active");
+                    reject(response, HttpStatus.FORBIDDEN, "tenant_inactive", "Tenant is not active");
                     return;
                 }
                 TenantContext.set(tenant.get());
                 MDC.put(MDC_TENANT, tenant.get().slug());
             } else if (!isTenantOptional(request)) {
                 log.debug("No tenant for host {}", request.getServerName());
-                reject(response, HttpStatus.NOT_FOUND, "Unknown tenant");
+                reject(response, HttpStatus.NOT_FOUND, "tenant_not_found", "Unknown tenant");
                 return;
             }
             chain.doFilter(request, response);
@@ -82,11 +83,8 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
         return TENANT_OPTIONAL.stream().anyMatch(p -> matcher.match(p, path));
     }
 
-    static void reject(HttpServletResponse response, HttpStatus status, String detail) throws IOException {
-        response.setStatus(status.value());
-        response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        response.getWriter().write("""
-                {"type":"about:blank","title":"%s","status":%d,"detail":"%s"}"""
-                .formatted(status.getReasonPhrase(), status.value(), detail));
+    static void reject(HttpServletResponse response, HttpStatus status, String code, String detail)
+            throws IOException {
+        Problems.write(response, status, code, detail);
     }
 }

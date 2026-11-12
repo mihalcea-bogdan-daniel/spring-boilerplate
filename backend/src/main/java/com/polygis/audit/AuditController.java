@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.polygis.common.PageResponse;
+import com.polygis.common.Sorts;
 
 @RestController
 @RequestMapping("/api/admin/audit")
@@ -39,6 +40,7 @@ public class AuditController {
     public PageResponse<AuditEventDto> list(@RequestParam(required = false) String q,
                                             @PageableDefault(size = 25, sort = "occurredAt",
                                                     direction = Sort.Direction.DESC) Pageable pageable) {
-        return PageResponse.of(repository.search(q == null ? "" : q.trim(), pageable), AuditEventDto::from);
+        return PageResponse.of(repository.search(q == null ? "" : q.trim(),
+                Sorts.allow(pageable, "occurredAt", "action", "actorEmail")), AuditEventDto::from);
     }
 }

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.polygis.auth.JwtClaims;
 import com.polygis.common.PageResponse;
+import com.polygis.common.Sorts;
 import com.polygis.platform.TenantDtos.*;
 
 import jakarta.validation.Valid;
@@ -33,7 +34,7 @@ public class PlatformTenantController {
     public PageResponse<TenantDto> list(@RequestParam(required = false) String q,
                                         @PageableDefault(size = 20, sort = "createdAt",
                                                 direction = Sort.Direction.DESC) Pageable pageable) {
-        return service.search(q, pageable);
+        return service.search(q, Sorts.allow(pageable, "slug", "name", "status", "plan", "createdAt"));
     }
 
     @PostMapping

@@ -53,7 +53,8 @@ public class TenantAccessFilter extends OncePerRequestFilter {
                 if (requested != null) {
                     Optional<TenantInfo> target = registry.findBySlug(requested);
                     if (target.isEmpty()) {
-                        TenantResolutionFilter.reject(response, HttpStatus.NOT_FOUND, "Unknown tenant " + requested);
+                        TenantResolutionFilter.reject(response, HttpStatus.NOT_FOUND, "tenant_not_found",
+                                "Unknown tenant " + requested);
                         return;
                     }
                     // super-admins may also manage SUSPENDED tenants
@@ -63,11 +64,13 @@ public class TenantAccessFilter extends OncePerRequestFilter {
             } else {
                 String current = hostTenant.map(TenantInfo::slug).orElse(null);
                 if (current == null || !current.equals(tokenTenant)) {
-                    TenantResolutionFilter.reject(response, HttpStatus.FORBIDDEN, "Token not valid for this tenant");
+                    TenantResolutionFilter.reject(response, HttpStatus.FORBIDDEN, "tenant_mismatch",
+                            "Token not valid for this tenant");
                     return;
                 }
                 if (requested != null && !requested.equals(current)) {
-                    TenantResolutionFilter.reject(response, HttpStatus.FORBIDDEN, "Tenant switching not allowed");
+                    TenantResolutionFilter.reject(response, HttpStatus.FORBIDDEN, "tenant_switch_forbidden",
+                            "Tenant switching not allowed");
                     return;
                 }
             }

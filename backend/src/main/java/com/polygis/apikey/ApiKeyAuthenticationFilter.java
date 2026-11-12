@@ -4,9 +4,10 @@ import java.io.IOException;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.polygis.common.Problems;
 
 import com.polygis.tenancy.TenantContext;
 
@@ -41,11 +42,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         var key = TenantContext.current().flatMap(t -> keys.authenticate(request.getHeader(HEADER)));
         if (key.isEmpty()) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-            response.getWriter().write("""
-                    {"type":"about:blank","title":"Unauthorized","status":401,\
-                    "detail":"Invalid API key","code":"invalid_api_key"}""");
+            Problems.write(response, HttpStatus.UNAUTHORIZED, "invalid_api_key", "Invalid API key");
             return;
         }
         SecurityContextHolder.getContext().setAuthentication(new ApiKeyAuthentication(key.get()));

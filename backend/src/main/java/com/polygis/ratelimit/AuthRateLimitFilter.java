@@ -3,8 +3,10 @@ package com.polygis.ratelimit;
 import java.io.IOException;
 
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.polygis.common.Problems;
 
 import com.polygis.tenancy.TenantContext;
 import com.polygis.tenancy.TenantInfo;
@@ -34,12 +36,9 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         String tenant = TenantContext.current().map(TenantInfo::slug).orElse("-");
         long retryAfter = limiter.tryAcquire(tenant + "|" + request.getRemoteAddr());
         if (retryAfter > 0) {
-            response.setStatus(429);
             response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(retryAfter));
-            response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-            response.getWriter().write("""
-                    {"type":"about:blank","title":"Too Many Requests","status":429,\
-                    "detail":"Too many attempts, try again in %d seconds","code":"rate_limited"}""".formatted(retryAfter));
+            Problems.write(response, HttpStatus.TOO_MANY_REQUESTS, "rate_limited",
+                    "Too many attempts, try again in " + retryAfter + " seconds");
             return;
         }
         chain.doFilter(request, response);

@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import com.polygis.common.PageResponse;
+import com.polygis.common.Sorts;
 import com.polygis.user.dto.UserDtos.*;
 
 import jakarta.validation.Valid;
@@ -32,7 +33,8 @@ public class UserAdminController {
     public PageResponse<UserDto> users(@RequestParam(required = false) String q,
                                        @PageableDefault(size = 20, sort = "createdAt",
                                                direction = Sort.Direction.DESC) Pageable pageable) {
-        return service.search(q, pageable);
+        return service.search(q, Sorts.allow(pageable, "email", "firstName", "lastName", "status", "createdAt",
+                "lastLoginAt"));
     }
 
     @GetMapping("/users/{id}")

@@ -22,6 +22,11 @@ spring:
         jdbc.time_zone: UTC
         default_batch_fetch_size: 50
 
+  data:
+    web:
+      pageable:
+        max-page-size: 100        # Spring's default (2000) is a cheap way to load the database
+
   flyway:
     enabled: false                 # we drive Flyway ourselves: see TenantSchemaMigrator
 
