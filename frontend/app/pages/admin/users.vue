@@ -5,9 +5,8 @@ import type { PageResponse, RoleDto, UserDto, UserStatus } from '~/types/api'
 definePageMeta({ permission: 'user:read' })
 
 const auth = useAuthStore()
-const toast = useToast()
 const confirm = useConfirm()
-const { $api } = useNuxtApp()
+const { request, pending: saving, fieldErrors: errors } = useRequest()
 
 // ---------------------------------------------------------------- lazy table state -> query string
 const page = ref(0)
@@ -36,9 +35,7 @@ const statuses: UserStatus[] = ['ACTIVE', 'PENDING', 'DISABLED']
 // ---------------------------------------------------------------- create / edit dialog
 interface UserForm { id?: string, email: string, firstName: string, lastName: string, password: string, status: UserStatus, roles: string[] }
 const dialog = ref(false)
-const saving = ref(false)
 const form = reactive<UserForm>({ email: '', firstName: '', lastName: '', password: '', status: 'ACTIVE', roles: ['USER'] })
-const errors = ref<Record<string, string>>({})
 
 function openCreate() {
   Object.assign(form, { id: undefined, email: '', firstName: '', lastName: '', password: '', status: 'ACTIVE', roles: ['USER'] })
@@ -52,46 +49,35 @@ function openEdit(u: UserDto) {
 }
 
 async function save() {
-  saving.value = true
-  errors.value = {}
-  try {
-    if (form.id) {
-      await $api(`/admin/users/${form.id}`, { method: 'PUT', body: { firstName: form.firstName, lastName: form.lastName, status: form.status, roles: form.roles } })
-    } else {
-      await $api('/admin/users', { method: 'POST', body: { email: form.email, firstName: form.firstName, lastName: form.lastName, password: form.password || null, roles: form.roles } })
-    }
-    toast.add({ severity: 'success', summary: 'User saved', life: 3000 })
-    dialog.value = false
-    await refresh()
-  } catch (e) {
-    const p = problemOf(e)
-    errors.value = p.errors ?? {}
-    toast.add({ severity: 'error', summary: p.detail, life: 5000 })
-  } finally {
-    saving.value = false
-  }
+  const res = form.id
+    ? await request(`/admin/users/${form.id}`, {
+        method: 'PUT',
+        body: { firstName: form.firstName, lastName: form.lastName, status: form.status, roles: form.roles },
+        success: 'User saved',
+        error: 'Could not save the user',
+      })
+    : await request('/admin/users', {
+        method: 'POST',
+        body: { email: form.email, firstName: form.firstName, lastName: form.lastName, password: form.password || null, roles: form.roles },
+        success: 'User created',
+        error: 'Could not create the user',
+      })
+  if (!res.ok) return
+  dialog.value = false
+  await refresh()
 }
 
 async function resendInvite(u: UserDto) {
-  try {
-    await $api(`/admin/users/${u.id}/invite`, { method: 'POST' })
-    toast.add({ severity: 'success', summary: `Invitation sent to ${u.email}`, life: 3000 })
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  }
+  await request(`/admin/users/${u.id}/invite`, { method: 'POST', success: `Invitation sent to ${u.email}` })
 }
 
 // ---------------------------------------------------------------- super-admin: sign in as user
 const tenantStore = useTenantStore()
 const canImpersonate = computed(() => auth.isSuperAdmin && !!tenantStore.managedTenant)
 async function impersonate(u: UserDto) {
-  try {
-    const { url } = await $api<{ url: string }>(
-      `/platform/tenants/${tenantStore.managedTenant}/impersonate/${u.id}`, { method: 'POST' })
-    window.open(url, '_blank', 'noopener')
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  }
+  const res = await request<{ url: string }>(
+    `/platform/tenants/${tenantStore.managedTenant}/impersonate/${u.id}`, { method: 'POST', success: false })
+  if (res.ok) window.open(res.data.url, '_blank', 'noopener')
 }
 
 function remove(u: UserDto) {
@@ -102,13 +88,8 @@ function remove(u: UserDto) {
     acceptProps: { label: 'Delete', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
     accept: async () => {
-      try {
-        await $api(`/admin/users/${u.id}`, { method: 'DELETE' })
-        toast.add({ severity: 'success', summary: 'User deleted', life: 3000 })
-        await refresh()
-      } catch (e) {
-        toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-      }
+      const res = await request(`/admin/users/${u.id}`, { method: 'DELETE', success: 'User deleted' })
+      if (res.ok) await refresh()
     },
   })
 }

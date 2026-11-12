@@ -6,12 +6,11 @@ definePageMeta({ permission: 'apikey:manage' })
 const auth = useAuthStore()
 const toast = useToast()
 const confirm = useConfirm()
-const { $api } = useNuxtApp()
+const { request, pending: saving } = useRequest()
 
 const { data: keys, pending, error, refresh } = useApi<ApiKeyDto[]>('/admin/api-keys', { server: false })
 
 const dialog = ref(false)
-const saving = ref(false)
 const form = reactive<{ name: string, permissions: string[] }>({ name: '', permissions: [] })
 /** The secret is returned once by the API and only kept here until the dialog closes. */
 const createdKey = ref<string | null>(null)
@@ -23,16 +22,13 @@ function open() {
 }
 
 async function create() {
-  saving.value = true
-  try {
-    const res = await $api<{ apiKey: ApiKeyDto, key: string }>('/admin/api-keys', { method: 'POST', body: form })
-    createdKey.value = res.key
-    await refresh()
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 6000 })
-  } finally {
-    saving.value = false
-  }
+  // no success toast: the dialog itself switches to showing the new secret
+  const res = await request<{ apiKey: ApiKeyDto, key: string }>('/admin/api-keys', {
+    method: 'POST', body: form, success: false, error: 'Could not create the key',
+  })
+  if (!res.ok) return
+  createdKey.value = res.data.key
+  await refresh()
 }
 
 async function copy() {
@@ -48,12 +44,8 @@ function revoke(k: ApiKeyDto) {
     acceptProps: { label: 'Revoke', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
     accept: async () => {
-      try {
-        await $api(`/admin/api-keys/${k.id}`, { method: 'DELETE' })
-        await refresh()
-      } catch (e) {
-        toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-      }
+      const res = await request(`/admin/api-keys/${k.id}`, { method: 'DELETE', success: `Key "${k.name}" revoked` })
+      if (res.ok) await refresh()
     },
   })
 }

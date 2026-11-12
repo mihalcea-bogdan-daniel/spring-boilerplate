@@ -4,9 +4,12 @@ import type { PageResponse, TenantDto, TenantStatsDto, TenantStatus } from '~/ty
 
 definePageMeta({ superAdminOnly: true })
 
-const toast = useToast()
 const tenantStore = useTenantStore()
-const { $api } = useNuxtApp()
+const { request } = useRequest()
+// separate instances so each dialog has its own spinner and field errors
+const { request: provisionRequest, pending: creating, fieldErrors: createErrors } = useRequest()
+const { request: deleteRequest, pending: deleting } = useRequest()
+const { request: migrateRequest, pending: migrating } = useRequest()
 
 const page = ref(0)
 const size = ref(20)
@@ -26,26 +29,19 @@ const statuses: TenantStatus[] = ['ACTIVE', 'SUSPENDED']
 
 // --------------------------------------------------- provision
 const createDialog = ref(false)
-const creating = ref(false)
 const createForm = reactive({ slug: '', name: '', domain: '', adminEmail: '', adminFirstName: '', adminLastName: '' })
-const createErrors = ref<Record<string, string>>({})
 
 async function provision() {
-  creating.value = true
-  createErrors.value = {}
-  try {
-    const t = await $api<TenantDto>('/platform/tenants', { method: 'POST', body: { ...createForm, domain: createForm.domain || null } })
-    toast.add({ severity: 'success', summary: `Tenant ${t.slug} provisioned`, detail: `Schema ${t.schemaName}`, life: 4000 })
-    createDialog.value = false
-    Object.assign(createForm, { slug: '', name: '', domain: '', adminEmail: '', adminFirstName: '', adminLastName: '' })
-    await refresh()
-  } catch (e) {
-    const p = problemOf(e)
-    createErrors.value = p.errors ?? {}
-    toast.add({ severity: 'error', summary: p.detail, life: 5000 })
-  } finally {
-    creating.value = false
-  }
+  const res = await provisionRequest<TenantDto>('/platform/tenants', {
+    method: 'POST',
+    body: { ...createForm, domain: createForm.domain || null },
+    success: t => `Tenant ${t.slug} provisioned (schema ${t.schemaName})`,
+    error: 'Could not provision the tenant',
+  })
+  if (!res.ok) return
+  createDialog.value = false
+  Object.assign(createForm, { slug: '', name: '', domain: '', adminEmail: '', adminFirstName: '', adminLastName: '' })
+  await refresh()
 }
 
 // --------------------------------------------------- edit
@@ -58,42 +54,37 @@ function openEdit(t: TenantDto) {
   editDialog.value = true
 }
 async function saveEdit() {
-  try {
-    await $api(`/platform/tenants/${editForm.id}`, { method: 'PUT', body: { name: editForm.name, domain: editForm.domain || null, status: editForm.status, plan: editForm.plan } })
-    editDialog.value = false
-    await refresh()
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  }
+  const res = await request(`/platform/tenants/${editForm.id}`, {
+    method: 'PUT',
+    body: { name: editForm.name, domain: editForm.domain || null, status: editForm.status, plan: editForm.plan },
+    success: 'Tenant saved',
+    error: 'Could not save the tenant',
+  })
+  if (!res.ok) return
+  editDialog.value = false
+  await refresh()
 }
 
 // --------------------------------------------------- status (schema version, size, usage)
 const statsDialog = ref(false)
 const stats = ref<TenantStatsDto | null>(null)
 const statsTenant = ref<TenantDto | null>(null)
-const migrating = ref(false)
+async function loadStats(t: TenantDto) {
+  const res = await request<TenantStatsDto>(`/platform/tenants/${t.id}/stats`, { error: 'Could not load tenant status' })
+  if (res.ok) stats.value = res.data
+  else statsDialog.value = false
+}
 async function openStats(t: TenantDto) {
   statsTenant.value = t
   stats.value = null
   statsDialog.value = true
-  try {
-    stats.value = await $api<TenantStatsDto>(`/platform/tenants/${t.id}/stats`)
-  } catch (e) {
-    statsDialog.value = false
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  }
+  await loadStats(t)
 }
 async function migrateNow() {
-  if (!statsTenant.value) return
-  migrating.value = true
-  try {
-    await $api(`/platform/tenants/${statsTenant.value.id}/migrate`, { method: 'POST' })
-    stats.value = await $api<TenantStatsDto>(`/platform/tenants/${statsTenant.value.id}/stats`)
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  } finally {
-    migrating.value = false
-  }
+  const t = statsTenant.value
+  if (!t) return
+  const res = await migrateRequest(`/platform/tenants/${t.id}/migrate`, { method: 'POST', success: 'Schema migrated' })
+  if (res.ok) await loadStats(t)
 }
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -106,7 +97,6 @@ function formatBytes(bytes: number): string {
 
 // --------------------------------------------------- offboarding (only suspended tenants)
 const deleteDialog = ref(false)
-const deleting = ref(false)
 const deleteTarget = ref<TenantDto | null>(null)
 const deleteConfirm = ref('')
 function openDelete(t: TenantDto) {
@@ -115,19 +105,15 @@ function openDelete(t: TenantDto) {
   deleteDialog.value = true
 }
 async function deleteTenant() {
-  if (!deleteTarget.value) return
-  deleting.value = true
-  try {
-    await $api(`/platform/tenants/${deleteTarget.value.id}`, { method: 'DELETE', query: { confirm: deleteConfirm.value } })
-    if (tenantStore.managedTenant === deleteTarget.value.slug) tenantStore.manage(null)
-    toast.add({ severity: 'success', summary: `Tenant ${deleteTarget.value.slug} deleted`, life: 4000 })
-    deleteDialog.value = false
-    await refresh()
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  } finally {
-    deleting.value = false
-  }
+  const t = deleteTarget.value
+  if (!t) return
+  const res = await deleteRequest(`/platform/tenants/${t.id}`, {
+    method: 'DELETE', query: { confirm: deleteConfirm.value }, success: `Tenant ${t.slug} deleted`,
+  })
+  if (!res.ok) return
+  if (tenantStore.managedTenant === t.slug) tenantStore.manage(null)
+  deleteDialog.value = false
+  await refresh()
 }
 
 /** Switch the dashboard into this tenant: subsequent /admin/* calls carry X-Tenant-ID. */

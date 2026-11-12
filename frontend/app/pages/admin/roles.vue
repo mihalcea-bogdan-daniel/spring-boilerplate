@@ -4,15 +4,13 @@ import type { PermissionDto, RoleDto } from '~/types/api'
 definePageMeta({ permission: 'role:read' })
 
 const auth = useAuthStore()
-const toast = useToast()
 const confirm = useConfirm()
-const { $api } = useNuxtApp()
+const { request, pending: saving } = useRequest()
 
 const { data: roles, pending, error, refresh } = useApi<RoleDto[]>('/admin/roles', { server: false })
 const { data: permissions } = useApi<PermissionDto[]>('/admin/permissions', { server: false })
 
 const dialog = ref(false)
-const saving = ref(false)
 const form = reactive<{ id?: string, name: string, description: string, permissions: string[], systemRole: boolean }>(
   { name: '', description: '', permissions: [], systemRole: false })
 
@@ -24,18 +22,13 @@ function open(role?: RoleDto) {
 }
 
 async function save() {
-  saving.value = true
-  try {
-    const body = { name: form.name, description: form.description, permissions: form.permissions }
-    await $api(form.id ? `/admin/roles/${form.id}` : '/admin/roles', { method: form.id ? 'PUT' : 'POST', body })
-    toast.add({ severity: 'success', summary: 'Role saved', life: 3000 })
-    dialog.value = false
-    await refresh()
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  } finally {
-    saving.value = false
-  }
+  const body = { name: form.name, description: form.description, permissions: form.permissions }
+  const res = await request(form.id ? `/admin/roles/${form.id}` : '/admin/roles', {
+    method: form.id ? 'PUT' : 'POST', body, success: 'Role saved', error: 'Could not save the role',
+  })
+  if (!res.ok) return
+  dialog.value = false
+  await refresh()
 }
 
 function remove(role: RoleDto) {
@@ -45,12 +38,8 @@ function remove(role: RoleDto) {
     acceptProps: { label: 'Delete', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
     accept: async () => {
-      try {
-        await $api(`/admin/roles/${role.id}`, { method: 'DELETE' })
-        await refresh()
-      } catch (e) {
-        toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-      }
+      const res = await request(`/admin/roles/${role.id}`, { method: 'DELETE', success: `Role ${role.name} deleted` })
+      if (res.ok) await refresh()
     },
   })
 }

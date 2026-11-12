@@ -2,8 +2,7 @@
 definePageMeta({ permission: 'settings:read' })
 
 const auth = useAuthStore()
-const toast = useToast()
-const { $api } = useNuxtApp()
+const { request, pending: saving } = useRequest()
 
 const { data, pending, error, refresh } = useApi<Record<string, string | null>>('/admin/settings', { server: false })
 
@@ -19,28 +18,22 @@ watch(data, (s) => {
   form.allowSocialLogin = s['auth.allowSocialLogin'] !== 'false'
 }, { immediate: true })
 
-const saving = ref(false)
 async function save() {
-  saving.value = true
-  try {
-    await $api('/admin/settings', {
-      method: 'PUT',
-      body: {
-        'general.displayName': form.displayName || null,
-        'brand.primaryColor': form.primaryColor,
-        'brand.logoUrl': form.logoUrl || null,
-        'auth.allowSelfRegistration': String(form.allowSelfRegistration),
-        'auth.allowSocialLogin': String(form.allowSocialLogin),
-      },
-    })
-    toast.add({ severity: 'success', summary: 'Settings saved', life: 3000 })
-    await branding.load(true) // apply the new look immediately
-    await refresh()
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  } finally {
-    saving.value = false
-  }
+  const res = await request('/admin/settings', {
+    method: 'PUT',
+    body: {
+      'general.displayName': form.displayName || null,
+      'brand.primaryColor': form.primaryColor,
+      'brand.logoUrl': form.logoUrl || null,
+      'auth.allowSelfRegistration': String(form.allowSelfRegistration),
+      'auth.allowSocialLogin': String(form.allowSocialLogin),
+    },
+    success: 'Settings saved',
+    error: 'Could not save the settings',
+  })
+  if (!res.ok) return
+  await branding.load(true) // apply the new look immediately
+  await refresh()
 }
 </script>
 

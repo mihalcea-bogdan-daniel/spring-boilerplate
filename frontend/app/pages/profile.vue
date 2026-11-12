@@ -4,6 +4,8 @@ import type { PasskeyDto, SessionDto } from '~/types/api'
 
 const auth = useAuthStore()
 const toast = useToast()
+const { request, notifyError } = useRequest()
+const { request: mfaRequest, pending: mfaBusy } = useRequest()
 
 const profile = reactive({ firstName: auth.user?.firstName ?? '', lastName: auth.user?.lastName ?? '' })
 const savingProfile = ref(false)
@@ -13,7 +15,7 @@ async function saveProfile() {
     await auth.updateProfile(profile.firstName, profile.lastName)
     toast.add({ severity: 'success', summary: 'Profile updated', life: 3000 })
   } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
+    notifyError(e, 'Could not update the profile')
   } finally {
     savingProfile.value = false
   }
@@ -42,70 +44,49 @@ async function savePassword() {
 }
 
 // ---------------------------------------------------------------- active sessions (refresh tokens)
-const { $api } = useNuxtApp()
 const { data: sessions, error: sessionsError, refresh: reloadSessions } = useApi<SessionDto[]>('/me/sessions', { server: false })
 
 async function revokeSession(s: SessionDto) {
-  try {
-    await $api(`/me/sessions/${s.id}`, { method: 'DELETE' })
-    await reloadSessions()
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  }
+  const res = await request(`/me/sessions/${s.id}`, { method: 'DELETE', success: 'Session signed out' })
+  if (res.ok) await reloadSessions()
 }
 
 async function signOutEverywhere() {
-  await $api('/me/sessions', { method: 'DELETE' })
-  await auth.logout()
+  const res = await request('/me/sessions', { method: 'DELETE', success: false, error: 'Could not sign out other sessions' })
+  if (res.ok) await auth.logout()
 }
 
 // ---------------------------------------------------------------- two-factor authentication (TOTP)
 const mfaSetup = ref<{ secret: string, otpauthUri: string, qr: string } | null>(null)
 const mfaCode = ref('')
-const mfaBusy = ref(false)
 const recoveryCodes = ref<string[] | null>(null)
 const disableDialog = ref(false)
 
 async function beginMfaSetup() {
-  mfaBusy.value = true
-  try {
-    const res = await $api<{ secret: string, otpauthUri: string }>('/me/mfa/setup', { method: 'POST' })
-    mfaSetup.value = { ...res, qr: await QRCode.toDataURL(res.otpauthUri, { margin: 1, width: 200 }) }
-    mfaCode.value = ''
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  } finally {
-    mfaBusy.value = false
-  }
+  const res = await mfaRequest<{ secret: string, otpauthUri: string }>('/me/mfa/setup', { method: 'POST', success: false })
+  if (!res.ok) return
+  mfaSetup.value = { ...res.data, qr: await QRCode.toDataURL(res.data.otpauthUri, { margin: 1, width: 200 }) }
+  mfaCode.value = ''
 }
 
 async function enableMfa() {
-  mfaBusy.value = true
-  try {
-    const res = await $api<{ recoveryCodes: string[] }>('/me/mfa/enable', { method: 'POST', body: { code: mfaCode.value } })
-    recoveryCodes.value = res.recoveryCodes
-    mfaSetup.value = null
-    await auth.fetchMe()
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  } finally {
-    mfaBusy.value = false
-  }
+  const res = await mfaRequest<{ recoveryCodes: string[] }>('/me/mfa/enable', {
+    method: 'POST', body: { code: mfaCode.value }, success: 'Two-factor authentication turned on',
+  })
+  if (!res.ok) return
+  recoveryCodes.value = res.data.recoveryCodes
+  mfaSetup.value = null
+  await auth.fetchMe()
 }
 
 async function disableMfa() {
-  mfaBusy.value = true
-  try {
-    await $api('/me/mfa/disable', { method: 'POST', body: { code: mfaCode.value } })
-    disableDialog.value = false
-    recoveryCodes.value = null
-    await auth.fetchMe()
-    toast.add({ severity: 'success', summary: 'Two-factor authentication turned off', life: 3000 })
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  } finally {
-    mfaBusy.value = false
-  }
+  const res = await mfaRequest('/me/mfa/disable', {
+    method: 'POST', body: { code: mfaCode.value }, success: 'Two-factor authentication turned off',
+  })
+  if (!res.ok) return
+  disableDialog.value = false
+  recoveryCodes.value = null
+  await auth.fetchMe()
 }
 
 // ---------------------------------------------------------------- passkeys
@@ -129,12 +110,8 @@ async function addPasskey() {
 }
 
 async function removePasskey(p: PasskeyDto) {
-  try {
-    await $api(`/me/passkeys/${p.id}`, { method: 'DELETE' })
-    await reloadPasskeys()
-  } catch (e) {
-    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
-  }
+  const res = await request(`/me/passkeys/${p.id}`, { method: 'DELETE', success: `Passkey "${p.name}" removed` })
+  if (res.ok) await reloadPasskeys()
 }
 
 /** Short human label for a User-Agent string. */
