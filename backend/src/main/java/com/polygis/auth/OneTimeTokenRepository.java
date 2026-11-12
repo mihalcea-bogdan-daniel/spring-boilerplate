@@ -16,6 +16,10 @@ public interface OneTimeTokenRepository extends JpaRepository<OneTimeToken, UUID
     Optional<OneTimeToken> findByCodeHashAndPurpose(String codeHash, OtpPurpose purpose);
 
     @Modifying
+    @Query("delete from OneTimeToken t where t.expiresAt < :cutoff")
+    int deleteByExpiresAtBefore(@Param("cutoff") Instant cutoff);
+
+    @Modifying
     @Query("""
             update OneTimeToken t set t.consumedAt = :now
             where t.userId = :userId and t.purpose = :purpose and t.consumedAt is null
