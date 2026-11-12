@@ -131,6 +131,35 @@ class TenantIsolationIT extends IntegrationTestBase {
     }
 
     @Test
+    void offboardingRequiresSuspensionAndConfirmationThenDropsTheSchema() throws Exception {
+        provisionTenant("iso-bye");
+        String root = superAdminToken();
+        String id = jdbc.queryForObject("select id::text from public.tenants where slug = 'iso-bye'", String.class);
+        var delete = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/platform/tenants/" + id);
+
+        mvc.perform(delete.param("confirm", "iso-bye").with(host(PLATFORM_HOST)).header("Authorization", bearer(root)))
+                .andExpect(status().isConflict()); // still active
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/platform/tenants/" + id)
+                        .with(host(PLATFORM_HOST)).header("Authorization", bearer(root))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("name", "Bye", "status", "SUSPENDED"))))
+                .andExpect(status().isOk());
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/platform/tenants/" + id)
+                        .param("confirm", "wrong").with(host(PLATFORM_HOST)).header("Authorization", bearer(root)))
+                .andExpect(status().isBadRequest());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/platform/tenants/" + id)
+                        .param("confirm", "iso-bye").with(host(PLATFORM_HOST)).header("Authorization", bearer(root)))
+                .andExpect(status().isNoContent());
+
+        assertThat(jdbc.queryForObject("select count(*) from information_schema.schemata where schema_name = 't_iso_bye'",
+                Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from public.tenants where slug = 'iso-bye'", Integer.class)).isZero();
+        mvc.perform(get("/api/auth/me").with(host(hostOf("iso-bye")))).andExpect(status().isNotFound());
+    }
+
+    @Test
     void unknownHostIsRejected() throws Exception {
         mvc.perform(get("/api/auth/me").with(host("nope.example.com"))).andExpect(status().isNotFound());
     }

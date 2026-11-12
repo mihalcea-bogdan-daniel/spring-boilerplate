@@ -65,6 +65,32 @@ async function saveEdit() {
   }
 }
 
+// --------------------------------------------------- offboarding (only suspended tenants)
+const deleteDialog = ref(false)
+const deleting = ref(false)
+const deleteTarget = ref<TenantDto | null>(null)
+const deleteConfirm = ref('')
+function openDelete(t: TenantDto) {
+  deleteTarget.value = t
+  deleteConfirm.value = ''
+  deleteDialog.value = true
+}
+async function deleteTenant() {
+  if (!deleteTarget.value) return
+  deleting.value = true
+  try {
+    await $api(`/platform/tenants/${deleteTarget.value.id}`, { method: 'DELETE', query: { confirm: deleteConfirm.value } })
+    if (tenantStore.managedTenant === deleteTarget.value.slug) tenantStore.manage(null)
+    toast.add({ severity: 'success', summary: `Tenant ${deleteTarget.value.slug} deleted`, life: 4000 })
+    deleteDialog.value = false
+    await refresh()
+  } catch (e) {
+    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
+  } finally {
+    deleting.value = false
+  }
+}
+
 /** Switch the dashboard into this tenant: subsequent /admin/* calls carry X-Tenant-ID. */
 async function manage(t: TenantDto) {
   tenantStore.manage(t.slug)
@@ -92,10 +118,12 @@ async function manage(t: TenantDto) {
       <Column field="domain" header="Custom domain"><template #body="{ data: t }">{{ t.domain ?? '—' }}</template></Column>
       <Column field="schemaName" header="Schema"><template #body="{ data: t }"><code>{{ t.schemaName }}</code></template></Column>
       <Column field="status" header="Status"><template #body="{ data: t }"><Tag :value="t.status" :severity="severity(t.status)" /></template></Column>
-      <Column style="width: 11rem; text-align: right">
+      <Column style="width: 14rem; text-align: right">
         <template #body="{ data: t }">
           <Button v-tooltip.top="'Manage users/settings (X-Tenant-ID)'" icon="pi pi-sign-in" text rounded aria-label="Manage" @click="manage(t)" />
           <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEdit(t)" />
+          <Button v-if="t.status === 'SUSPENDED'" v-tooltip.top="'Delete tenant and all its data'" icon="pi pi-trash" text rounded
+                  severity="danger" aria-label="Delete" @click="openDelete(t)" />
         </template>
       </Column>
     </DataTable>
@@ -129,6 +157,24 @@ async function manage(t: TenantDto) {
         <div class="row" style="justify-content: flex-end">
           <Button type="button" label="Cancel" severity="secondary" text @click="createDialog = false" />
           <Button type="submit" label="Provision" icon="pi pi-server" :loading="creating" />
+        </div>
+      </form>
+    </Dialog>
+
+    <Dialog v-model:visible="deleteDialog" header="Delete tenant" modal :style="{ width: '30rem' }">
+      <form class="stack" @submit.prevent="deleteTenant">
+        <Message severity="error" :closable="false">
+          This permanently drops schema <code>{{ deleteTarget?.schemaName }}</code> with every user, role and setting.
+          It cannot be undone — take a database backup first.
+        </Message>
+        <div class="field">
+          <label for="d-confirm">Type <code>{{ deleteTarget?.slug }}</code> to confirm</label>
+          <InputText id="d-confirm" v-model="deleteConfirm" autocomplete="off" fluid />
+        </div>
+        <div class="row" style="justify-content: flex-end">
+          <Button type="button" label="Cancel" severity="secondary" text @click="deleteDialog = false" />
+          <Button type="submit" label="Delete permanently" severity="danger" icon="pi pi-trash" :loading="deleting"
+                  :disabled="deleteConfirm !== deleteTarget?.slug" />
         </div>
       </form>
     </Dialog>

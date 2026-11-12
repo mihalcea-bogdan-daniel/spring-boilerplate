@@ -4,6 +4,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -41,12 +42,14 @@ public class TenantProvisioningService {
     private final AppProperties props;
     private final AuditService audit;
     private final OtpService otp;
+    private final JdbcTemplate jdbc;
     private final UserRepository users;
 
     public TenantProvisioningService(TenantRepository tenants, TenantSchemaMigrator migrator,
                                      TenantRegistry registry, UserAdminService userAdmin, MailService mail,
                                      TransactionTemplate tx, AppProperties props, AuditService audit,
-                                     OtpService otp, UserRepository users) {
+                                     OtpService otp, UserRepository users, JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.tenants = tenants;
         this.migrator = migrator;
         this.registry = registry;
@@ -114,6 +117,34 @@ public class TenantProvisioningService {
         });
         registry.publishChange();
         return TenantDto.from(t);
+    }
+
+    /**
+     * Offboarding, step 2 of 2 (step 1 is suspending the tenant). Irreversible: drops the tenant's schema with
+     * all its data and removes it from the registry. Take a backup first: {@code pg_dump -n t_<slug>}.
+     *
+     * @param confirmSlug must equal the tenant's slug - protects against deleting the wrong row
+     */
+    public void delete(UUID id, String confirmSlug) {
+        Tenant tenant = tenants.findById(id).orElseThrow(() -> ApiException.notFound("Tenant"));
+        if (props.tenancy().platformTenant().equals(tenant.getSlug())) {
+            throw ApiException.badRequest("platform_tenant", "The platform tenant cannot be deleted");
+        }
+        if (tenant.getStatus() == TenantStatus.ACTIVE) {
+            throw ApiException.conflict("tenant_active", "Suspend the tenant before deleting it");
+        }
+        if (!tenant.getSlug().equals(confirmSlug)) {
+            throw ApiException.badRequest("confirmation_mismatch", "Confirmation does not match the tenant slug");
+        }
+        // schema first: if this fails the registry row remains and the delete can simply be retried
+        jdbc.execute("drop schema if exists \"" + TenantSchemas.requireValidSchema(tenant.getSchemaName())
+                + "\" cascade");
+        tx.executeWithoutResult(s -> {
+            tenants.deleteById(id);
+            audit.record("tenant.deleted", "tenant", tenant.getSlug(), "schema " + tenant.getSchemaName() + " dropped");
+        });
+        registry.publishChange();
+        log.warn("Deleted tenant {} and dropped schema {}", tenant.getSlug(), tenant.getSchemaName());
     }
 
     /** @return URL on the tenant host that starts the impersonated session */

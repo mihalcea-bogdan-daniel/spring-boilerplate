@@ -47,6 +47,13 @@ public class PlatformTenantController {
         return service.update(id, req);
     }
 
+    /** Permanently deletes a suspended tenant and its schema. {@code confirm} must repeat the slug. */
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID id, @RequestParam String confirm) {
+        service.delete(id, confirm);
+    }
+
     public record ImpersonationResponse(String url) {
     }
 
