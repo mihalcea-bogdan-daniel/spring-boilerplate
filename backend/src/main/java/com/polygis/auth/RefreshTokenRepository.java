@@ -1,6 +1,7 @@
 package com.polygis.auth;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -12,6 +13,10 @@ import org.springframework.data.repository.query.Param;
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
 
     Optional<RefreshToken> findByTokenHash(String tokenHash);
+
+    List<RefreshToken> findByUserIdAndRevokedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(UUID userId, Instant now);
+
+    Optional<RefreshToken> findByIdAndUserId(UUID id, UUID userId);
 
     @Modifying
     @Query("update RefreshToken t set t.revokedAt = :now where t.familyId = :family and t.revokedAt is null")

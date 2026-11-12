@@ -67,6 +67,14 @@ export interface TenantDto {
   createdAt: string
 }
 
+export interface SessionDto {
+  id: string
+  userAgent: string | null
+  ipAddress: string | null
+  createdAt: string
+  expiresAt: string
+}
+
 export interface AuditEventDto {
   id: string
   occurredAt: string

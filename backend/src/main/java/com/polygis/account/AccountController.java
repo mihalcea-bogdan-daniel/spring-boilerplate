@@ -1,5 +1,6 @@
 package com.polygis.account;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -46,6 +47,23 @@ public class AccountController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changePassword(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChangePasswordRequest req) {
         accounts.changePassword(userId(jwt), tenant(jwt), req);
+    }
+
+    @GetMapping("/sessions")
+    public List<AccountService.SessionDto> sessions(@AuthenticationPrincipal Jwt jwt) {
+        return accounts.sessions(userId(jwt), tenant(jwt));
+    }
+
+    @DeleteMapping("/sessions/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeSession(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        accounts.revokeSession(userId(jwt), tenant(jwt), id);
+    }
+
+    @DeleteMapping("/sessions")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeAllSessions(@AuthenticationPrincipal Jwt jwt) {
+        accounts.revokeAllSessions(userId(jwt), tenant(jwt));
     }
 
     private static UUID userId(Jwt jwt) {

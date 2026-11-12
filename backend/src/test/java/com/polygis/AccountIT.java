@@ -94,4 +94,27 @@ class AccountIT extends IntegrationTestBase {
         mvc.perform(jsonPost("/api/admin/users", body).with(host(host)).header("Authorization", bearer(adminToken)))
                 .andExpect(status().isCreated());
     }
+
+    @Test
+    void userListsAndRevokesOwnSessions() throws Exception {
+        String admin = provisionTenant("acct-sess");
+        String host = hostOf("acct-sess");
+        var first = otpLogin(host, admin);
+        var second = otpLogin(host, admin);
+        String token = accessToken(second);
+
+        var list = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/me/sessions")
+                        .with(host(host)).header("Authorization", bearer(token)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2)).andReturn();
+        String oldest = body(list).get(1).get("id").asText();
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/me/sessions/" + oldest)
+                .with(host(host)).header("Authorization", bearer(token))).andExpect(status().isNoContent());
+
+        // the revoked device can no longer refresh, the other one still can
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/auth/refresh")
+                .with(host(host)).cookie(first.getResponse().getCookie("refresh_token"))).andExpect(status().isUnauthorized());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/auth/refresh")
+                .with(host(host)).cookie(second.getResponse().getCookie("refresh_token"))).andExpect(status().isOk());
+    }
 }

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { SessionDto } from '~/types/api'
+
 const auth = useAuthStore()
 const toast = useToast()
 
@@ -36,6 +38,32 @@ async function savePassword() {
   } finally {
     savingPassword.value = false
   }
+}
+
+// ---------------------------------------------------------------- active sessions (refresh tokens)
+const { $api } = useNuxtApp()
+const { data: sessions, refresh: reloadSessions } = useApi<SessionDto[]>('/me/sessions', { server: false })
+
+async function revokeSession(s: SessionDto) {
+  try {
+    await $api(`/me/sessions/${s.id}`, { method: 'DELETE' })
+    await reloadSessions()
+  } catch (e) {
+    toast.add({ severity: 'error', summary: problemOf(e).detail, life: 5000 })
+  }
+}
+
+async function signOutEverywhere() {
+  await $api('/me/sessions', { method: 'DELETE' })
+  await auth.logout()
+}
+
+/** Short human label for a User-Agent string. */
+function device(ua: string | null): string {
+  if (!ua) return 'Unknown device'
+  const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Browser'
+  const os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : ''
+  return os ? `${browser} on ${os}` : browser
 }
 </script>
 
@@ -94,6 +122,31 @@ async function savePassword() {
             <Button type="submit" label="Update password" icon="pi pi-lock" :loading="savingPassword" />
           </div>
         </form>
+      </template>
+    </Card>
+
+    <Card>
+      <template #title>Active sessions</template>
+      <template #subtitle>Devices that can still refresh their sign-in. A revoked device is signed out within 15 minutes.</template>
+      <template #content>
+        <DataTable :value="sessions ?? []" data-key="id" size="small">
+          <template #empty>No active sessions.</template>
+          <Column header="Device">
+            <template #body="{ data: s }">{{ device(s.userAgent) }}</template>
+          </Column>
+          <Column field="ipAddress" header="IP" />
+          <Column header="Signed in">
+            <template #body="{ data: s }">{{ new Date(s.createdAt).toLocaleString() }}</template>
+          </Column>
+          <Column style="width: 4rem; text-align: right">
+            <template #body="{ data: s }">
+              <Button icon="pi pi-times" text rounded severity="danger" aria-label="Revoke" @click="revokeSession(s)" />
+            </template>
+          </Column>
+        </DataTable>
+        <div class="row" style="justify-content: flex-end; margin-top: 1rem">
+          <Button label="Sign out everywhere" icon="pi pi-sign-out" severity="danger" outlined @click="signOutEverywhere" />
+        </div>
       </template>
     </Card>
   </div>

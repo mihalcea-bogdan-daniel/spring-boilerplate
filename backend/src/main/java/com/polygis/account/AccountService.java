@@ -1,5 +1,7 @@
 package com.polygis.account;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -11,6 +13,8 @@ import com.polygis.account.AccountController.ChangePasswordRequest;
 import com.polygis.account.AccountController.UpdateProfileRequest;
 import com.polygis.audit.AuditService;
 import com.polygis.auth.AuthService;
+import com.polygis.auth.RefreshToken;
+import com.polygis.auth.RefreshTokenRepository;
 import com.polygis.auth.TokenService;
 import com.polygis.auth.dto.AuthDtos.MeResponse;
 import com.polygis.common.ApiException;
@@ -30,10 +34,11 @@ public class AccountService {
     private final TenantRegistry registry;
     private final TransactionTemplate tx;
     private final AuditService audit;
+    private final RefreshTokenRepository refreshTokens;
 
     public AccountService(UserRepository users, PasswordEncoder passwordEncoder, TokenService tokens,
                           AuthService auth, TenantRegistry registry, TransactionTemplate tx,
-                          AuditService audit) {
+                          AuditService audit, RefreshTokenRepository refreshTokens) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
@@ -41,6 +46,7 @@ public class AccountService {
         this.registry = registry;
         this.tx = tx;
         this.audit = audit;
+        this.refreshTokens = refreshTokens;
     }
 
     public MeResponse updateProfile(UUID userId, String homeTenant, UpdateProfileRequest req) {
@@ -64,6 +70,31 @@ public class AccountService {
             audit.recordAs(user.getId(), user.getEmail(), "auth.password_changed", null);
             return null;
         });
+    }
+
+    public List<SessionDto> sessions(UUID userId, String homeTenant) {
+        return TenantContext.callAs(registry.requireBySlug(homeTenant), () -> refreshTokens
+                .findByUserIdAndRevokedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(userId, Instant.now())
+                .stream().map(SessionDto::from).toList());
+    }
+
+    /** Revokes one session (its whole rotation family); the device is signed out at its next token refresh. */
+    public void revokeSession(UUID userId, String homeTenant, UUID sessionId) {
+        TenantContext.runAs(registry.requireBySlug(homeTenant), () -> tx.executeWithoutResult(status -> {
+            RefreshToken token = refreshTokens.findByIdAndUserId(sessionId, userId)
+                    .orElseThrow(() -> ApiException.notFound("Session"));
+            refreshTokens.revokeFamily(token.getFamilyId(), Instant.now());
+        }));
+    }
+
+    public void revokeAllSessions(UUID userId, String homeTenant) {
+        TenantContext.runAs(registry.requireBySlug(homeTenant), () -> tokens.revokeAll(userId));
+    }
+
+    public record SessionDto(UUID id, String userAgent, String ipAddress, Instant createdAt, Instant expiresAt) {
+        static SessionDto from(RefreshToken t) {
+            return new SessionDto(t.getId(), t.getUserAgent(), t.getIpAddress(), t.getCreatedAt(), t.getExpiresAt());
+        }
     }
 
     /** A super-admin may be switched into another tenant (X-Tenant-ID); their own account lives at home. */
