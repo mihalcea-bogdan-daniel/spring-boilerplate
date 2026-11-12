@@ -160,7 +160,7 @@ public class AuthService {
         User user = users.findByEmailIgnoreCase(req.email())
                 .orElseThrow(() -> ApiException.badRequest("otp_invalid", "Invalid or expired code"));
         otp.verifyNumeric(user.getId(), OtpPurpose.LOGIN, req.code());
-        user.setEmailVerified(true); // proving inbox ownership verifies the address
+        user.verifyEmailAsOwner(); // proving inbox ownership verifies the address (and drops unproven credentials)
         if (user.getStatus() == UserStatus.PENDING) user.setStatus(UserStatus.ACTIVE);
         ensureActive(user);
         return completeFirstFactor(user, client, "email-code");
@@ -233,8 +233,8 @@ public class AuthService {
         UUID userId = otp.consumeExchangeCode(code);
         User user = users.findById(userId).orElseThrow(() -> ApiException.badRequest("code_invalid", "Invalid code"));
         ensureActive(user);
-        audit.recordAs(user.getId(), user.getEmail(), "auth.login", "oauth2");
-        return issue(user, client);
+        // same second-factor rules as password and e-mail-code sign-in
+        return completeFirstFactor(user, client, "oauth2");
     }
 
     /**

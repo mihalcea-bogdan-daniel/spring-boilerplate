@@ -90,9 +90,8 @@ public class AuthController {
 
     /** Second leg of social login: trade the one-time code from the redirect for real tokens. */
     @PostMapping("/oauth2/exchange")
-    public TokenResponse exchange(@Valid @RequestBody ExchangeRequest req, HttpServletRequest http,
-                                  HttpServletResponse res) {
-        return respond(auth.exchangeOAuth2Code(req.code(), client(http)), res);
+    public Object exchange(@Valid @RequestBody ExchangeRequest req, HttpServletRequest http, HttpServletResponse res) {
+        return respondOrChallenge(auth.exchangeOAuth2Code(req.code(), client(http)), res);
     }
 
     /** Landing step of "sign in as user": no refresh cookie is set, the session ends with the access token. */

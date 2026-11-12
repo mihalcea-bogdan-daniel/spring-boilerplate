@@ -81,6 +81,21 @@ public class User {
         updatedAt = Instant.now();
     }
 
+    /**
+     * The owner of the inbox just proved control of it (e-mail code or a provider-verified social login).
+     * If nobody had verified this address before, whatever credentials exist were set by someone who never
+     * proved they own it - possibly an attacker who pre-registered the victim's e-mail - so they are discarded.
+     */
+    public void verifyEmailAsOwner() {
+        if (!emailVerified) {
+            passwordHash = null;
+            totpEnabled = false;
+            totpSecret = null;
+            totpLastStep = null;
+        }
+        emailVerified = true;
+    }
+
     public boolean isLocked() {
         return lockedUntil != null && lockedUntil.isAfter(Instant.now());
     }

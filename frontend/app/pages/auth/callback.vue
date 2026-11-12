@@ -23,12 +23,12 @@ onMounted(async () => {
     return
   }
   try {
-    await auth.exchangeOAuth2Code(code)
+    const signedIn = await auth.exchangeOAuth2Code(code)
     const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
       && !route.query.redirect.startsWith('//')
       ? route.query.redirect
       : '/'
-    await navigateTo(redirect, { replace: true })
+    await navigateTo(signedIn ? redirect : { path: '/auth/mfa', query: { redirect } }, { replace: true })
   } catch (e) {
     error.value = problemOf(e).code ?? 'exchange_failed'
   }

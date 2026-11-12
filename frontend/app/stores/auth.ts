@@ -99,8 +99,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /** Second leg of social login: /auth/callback?code=... */
-  async function exchangeOAuth2Code(code: string) {
-    setSession(await nuxtApp.$api<TokenResponse>('/auth/oauth2/exchange', { method: 'POST', body: { code } }))
+  /** @returns false when the account requires its second factor (continue at /auth/mfa). */
+  async function exchangeOAuth2Code(code: string): Promise<boolean> {
+    return completeFirstFactor(await nuxtApp.$api<TokenResponse | MfaChallengeResponse>(
+      '/auth/oauth2/exchange', { method: 'POST', body: { code } }))
   }
 
   /** "Sign in as user" landing: /auth/callback?impersonate=... (access token only, no refresh cookie). */

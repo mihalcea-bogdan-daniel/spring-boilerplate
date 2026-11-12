@@ -80,7 +80,7 @@ public class OAuth2UserProvisioner {
         if (user.getStatus() == UserStatus.DISABLED) {
             throw ApiException.forbidden("account_disabled", "Account disabled");
         }
-        user.setEmailVerified(true);
+        user.verifyEmailAsOwner();
         user.setStatus(UserStatus.ACTIVE);
         users.save(user);
 
