@@ -6,6 +6,8 @@ For people and coding agents working in `frontend/`. The short, enforceable vers
 | --- | --- |
 | [Data and errors](data-and-errors.md) | load a list, save a form, or wonder which toast colour to show |
 | [Adding a page](adding-a-page.md) | add a new admin screen end to end |
+| [Organisation](organisation.md) | work with units, ranks, supervision or "sign in as" |
+| [Ownership and access](../../backend/docs/access.md) | build anything that someone owns or shares |
 | [Translations (i18n)](i18n.md) | write any text a user will see, add a key or a language |
 | [Theming and PWA](theming-and-pwa.md) | touch colours, the logo, the manifest or offline behaviour |
 

@@ -150,6 +150,7 @@
     <a href="#layout">Repository layout</a>
     <a href="#tenancy">How tenants work</a>
     <a href="#auth">Sign-in methods</a>
+    <a href="#organisation">Organisation and ownership</a>
     <h4>Build</h4>
     <a href="#develop">Adding a feature</a>
     <a href="#quality">Checks before a PR</a>
@@ -288,6 +289,19 @@ docs/                    this site</pre></div>
       <p>Sessions use a 15-minute access token and a rotating refresh token in an <code>HttpOnly</code> cookie. Changing the password, disabling a user or changing their roles takes effect immediately.</p>
     </section>
 
+    <section id="organisation">
+      <h2>Organisation and ownership</h2>
+      <p>Each workspace has a tree of units (company → department → team) and numbered ranks with names in every language: Director 900, Head of department 500, Chief 100, Deputy chief 80, Coordinator 50, Member 10. Someone supervises everyone in their unit and below it with a lower number, so a Director at the root supervises the whole workspace.</p>
+      <div class="table"><table>
+        <tr><th>Supervisors can</th><th>Notes</th></tr>
+        <tr><td>See their team and its activity</td><td><em>My team</em> page</td></tr>
+        <tr><td>Read what their people own</td><td>read only, through the access model</td></tr>
+        <tr><td>Manage units they lead</td><td>add people and give ranks below their own</td></tr>
+        <tr><td>Sign in as their people</td><td>needs <code>org:impersonate</code>; refused if the person holds more permissions; audited and shown to the person</td></tr>
+      </table></div>
+      <p>Ownership is a relation between a resource and a user, a unit or a group (for example a household), never an <code>owner_id</code> column. One policy decides access for every module, and systems that keep their own assignments, such as a workflow engine, plug in without copying data. Read <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/docs/organisation.md">the organisation guide</a> and <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/backend/docs/access.md">the access guide</a>.</p>
+    </section>
+
     <section id="develop">
       <h2>Adding a feature</h2>
       <ol class="steps">
@@ -296,6 +310,7 @@ docs/                    this site</pre></div>
         <li><strong>Integration test</strong> extending <code>IntegrationTestBase</code> (embedded PostgreSQL; no Docker needed).</li>
         <li><strong>Texts</strong> in <code>frontend/i18n/locales/en.json</code> and the same keys, translated, in every other locale file. Pages never contain literal text; lint fails if they do (<a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/docs/i18n.md">i18n guide</a>).</li>
         <li><strong>Page</strong> in <code>frontend/app/pages/admin/</code>, following <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/docs/adding-a-page.md">the page recipe</a>: <code>useApi()</code> + <code>&lt;LoadError&gt;</code> to show data, <code>useRequest()</code> for buttons, <code>t('…')</code> for every text, <code>definePageMeta({ permission })</code>.</li>
+        <li><strong>Owned data?</strong> Register a <code>ResourceTypeDefinition</code> and go through <code>AccessPolicy</code>; add <code>&lt;AccessPanel&gt;</code> to the page (<a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/backend/docs/access.md">recipe</a>).</li>
         <li><strong>Menu entry</strong> in <code>frontend/app/layouts/default.vue</code>.</li>
       </ol>
       <div class="note">Coding agents: read <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/AGENTS.md"><code>frontend/AGENTS.md</code></a> first. It lists the components to use, how errors become toasts, the i18n rule, and the files not to touch.</div>

@@ -35,6 +35,12 @@ Longer explanations and copy-paste examples live in [`docs/`](docs/README.md). R
     translation, never English pasted into `ro.json`). Dates use `d(value, 'datetime')`, never
     `toLocaleString()`. API enums use ``t(`status.${value}`)``. Lists built in `<script>` that contain text are
     `computed`. Markup inside a sentence uses `<i18n-t>`, never `v-html`. Full guide: [`docs/i18n.md`](docs/i18n.md).
+14. **Anything owned goes through the access model.** No `owner_id` columns, no `if (x.ownerId === me)`.
+    Backend: register a `ResourceTypeDefinition`, call `AccessPolicy.createOwned/require/visibleIds/forget`.
+    Frontend: `useAccess(type, id)` for buttons and `<AccessPanel :type :id />` for sharing. Recipe:
+    [`../backend/docs/access.md`](../backend/docs/access.md); Projects is the reference module.
+15. **"Over whom" comes from the organisation, never from roles.** Use `/api/me/team`, `@org.supervises(#id)`
+    and the chart's `leadLevel`; show ranks with `<RankTag>`. See [`docs/organisation.md`](docs/organisation.md).
 
 ## Components
 
@@ -54,6 +60,9 @@ Longer explanations and copy-paste examples live in [`docs/`](docs/README.md). R
 | Icons | PrimeIcons, `pi pi-*` |
 | Language picker | `LocaleSwitcher` (ours; already in both layouts) |
 | Text | `const { t, d } = useI18n()`; `<i18n-t>` for sentences containing markup |
+| Sharing / ownership | `useAccess()`, `AccessPanel`, `SubjectPicker` (ours) |
+| Rank badge | `RankTag` (ours) |
+| Org chart | `OrganizationChart` (see `pages/organization.vue`) |
 
 ## Smallest correct mutation
 

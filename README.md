@@ -143,6 +143,22 @@ seeded in every tenant schema. `TENANT_ADMIN` gets all of them, `USER` none. Cus
 permission plus `tenant:manage`. Use `@PreAuthorize("hasAuthority('…')")` in Spring and
 `definePageMeta({ permission: '…' })` / `auth.can('…')` in Nuxt.
 
+## Organisation and ownership
+
+Each tenant has a tree of **units** (company → department → team) and a catalogue of numbered **ranks**
+(Director 900, Chief 100, Deputy 80, Member 10…, with names per language and synonyms). Someone supervises
+everyone in their unit and below it with a lower number; a Director at the root supervises everyone.
+Supervisors see their team and its activity, read what their people own, manage the units they lead, and,
+with `org:impersonate`, sign in as their people (audited, visible to the person, no escalation). The
+Organisation page draws the tree with PrimeVue's `OrganizationChart`.
+
+**Ownership** is a relation, not a column: a resource (`project:…`, `file:…`, `flowable.task:…`) relates to a
+user, a unit or a group (e.g. a household) as `owner`, `editor`, `viewer`… `AccessPolicy` is the only place
+that decides access, and external systems plug in through `RelationSource`. Projects is the reference module.
+
+* [frontend/docs/organisation.md](frontend/docs/organisation.md): units, ranks, supervision, "sign in as"
+* [backend/docs/access.md](backend/docs/access.md): the access model and how to add an owned module
+
 ## Tenant provisioning
 
 `POST /api/platform/tenants` (super-admin):
