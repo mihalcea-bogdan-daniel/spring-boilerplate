@@ -27,17 +27,23 @@ class DemoDataSeederIT extends IntegrationTestBase {
     JdbcTemplate jdbc;
     @Autowired
     com.polygis.config.AppProperties props;
+    @Autowired
+    com.polygis.org.DemoOrganisation organisation;
 
     @Test
     void seedsDemoTenantsOnceAndTheirAdminsCanSignIn() throws Exception {
-        var seeder = new DemoDataSeeder(provisioning, registry, users, userRepository, props);
+        var seeder = new DemoDataSeeder(provisioning, registry, users, userRepository, props, organisation);
         seeder.seed();
         seeder.seed(); // idempotent
 
-        assertThat(jdbc.queryForObject("select count(*) from t_acme.users", Integer.class)).isEqualTo(6);
+        assertThat(jdbc.queryForObject("select count(*) from t_acme.users", Integer.class)).isEqualTo(11);
+        assertThat(jdbc.queryForObject("select count(*) from t_acme.org_units", Integer.class)).isEqualTo(5);
+        assertThat(jdbc.queryForObject("select count(*) from t_acme.org_memberships", Integer.class)).isEqualTo(9);
+        assertThat(jdbc.queryForObject("select count(*) from t_globex.org_units", Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from t_globex.users", Integer.class)).isEqualTo(6);
         assertThat(jdbc.queryForObject("select plan from public.tenants where slug = 'acme'", String.class)).isEqualTo("pro");
         login(hostOf("acme"), "admin@acme.test", DemoDataSeeder.PASSWORD);
         login(hostOf("globex"), "bob@globex.test", DemoDataSeeder.PASSWORD);
+        login(hostOf("acme"), "carol@acme.test", DemoDataSeeder.PASSWORD);
     }
 }

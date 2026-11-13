@@ -26,8 +26,9 @@ class RbacIT extends IntegrationTestBase {
         // a "user manager" role: can manage users but holds nothing else
         mvc.perform(jsonPost("/api/admin/roles", Map.of("name", "USER_MANAGER", "permissions", List.of("user:read", "user:write")))
                 .with(host(host)).header("Authorization", bearer(adminToken))).andExpect(status().isCreated());
+        // (also a USER: handing out USER requires holding its permissions, e.g. org:read and project:*)
         mvc.perform(jsonPost("/api/admin/users", Map.of("email", "mgr@rbac-one.test", "password", "Manager-Passw0rd",
-                        "roles", List.of("USER_MANAGER")))
+                        "roles", List.of("USER_MANAGER", "USER")))
                 .with(host(host)).header("Authorization", bearer(adminToken))).andExpect(status().isCreated());
         String mgr = accessToken(login(host, "mgr@rbac-one.test", "Manager-Passw0rd"));
 
