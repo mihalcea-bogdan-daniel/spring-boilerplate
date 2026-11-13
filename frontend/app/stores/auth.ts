@@ -5,6 +5,8 @@ import type { Me, MessageResponse, MfaChallengeResponse, TokenResponse } from '~
  * Session state.
  * - access token: short-lived JWT kept in a (non-HttpOnly) SameSite=Strict cookie so SSR requests can use it;
  * - refresh token: HttpOnly cookie owned by the backend (path /api/auth) - JavaScript never sees it.
+ * - impersonated session ("sign in as"): access token only, kept in this tab's sessionStorage. Never in the shared
+ *   cookie, so the person who started it stays signed in as themself in every other tab.
  */
 export const useAuthStore = defineStore('auth', () => {
   const nuxtApp = useNuxtApp()
@@ -17,7 +19,13 @@ export const useAuthStore = defineStore('auth', () => {
   })
   const user = ref<Me | null>(null)
 
-  const isAuthenticated = computed(() => !!accessToken.value && !!user.value)
+  const IMPERSONATION_KEY = 'impersonation_token'
+  const impersonationToken = ref<string | null>(import.meta.client ? readTab(IMPERSONATION_KEY) : null)
+  /** The bearer token for API calls: this tab's impersonated session if any, else the user's own. */
+  const token = computed(() => impersonationToken.value ?? accessToken.value)
+  const isImpersonating = computed(() => !!impersonationToken.value)
+
+  const isAuthenticated = computed(() => !!token.value && !!user.value)
   const isSuperAdmin = computed(() => user.value?.superAdmin === true)
   const displayName = computed(() => {
     const u = user.value
@@ -105,9 +113,19 @@ export const useAuthStore = defineStore('auth', () => {
       '/auth/oauth2/exchange', { method: 'POST', body: { code } }))
   }
 
-  /** "Sign in as user" landing: /auth/callback?impersonate=... (access token only, no refresh cookie). */
+  /** "Sign in as" landing: /auth/callback?impersonate=... The session lives in this tab only (see top). */
   async function exchangeImpersonationCode(code: string) {
-    setSession(await nuxtApp.$api<TokenResponse>('/auth/impersonation/exchange', { method: 'POST', body: { code } }))
+    const res = await nuxtApp.$api<TokenResponse>('/auth/impersonation/exchange', { method: 'POST', body: { code } })
+    impersonationToken.value = res.accessToken
+    writeTab(IMPERSONATION_KEY, res.accessToken)
+    user.value = res.user
+  }
+
+  /** Leaves the impersonated session in this tab; the user's own session (cookie) is untouched. */
+  function endImpersonation() {
+    impersonationToken.value = null
+    writeTab(IMPERSONATION_KEY, null)
+    user.value = null
   }
 
   /** Full-page redirect into Spring's OAuth2 flow on the current (tenant) host. */
@@ -120,6 +138,8 @@ export const useAuthStore = defineStore('auth', () => {
   let refreshing: Promise<boolean> | null = null
 
   function refresh(): Promise<boolean> {
+    // an impersonated session can't be refreshed: when it expires this tab returns to the user's own session
+    if (impersonationToken.value) endImpersonation()
     refreshing ??= nuxtApp.$api<TokenResponse>('/auth/refresh', { method: 'POST' })
       .then((res) => { setSession(res); return true })
       .catch(() => { clearSession(); return false })
@@ -133,8 +153,17 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** Called by the auth middleware: restore the session from cookies (access token, else refresh cookie). */
   async function ensureSession(): Promise<boolean> {
-    if (user.value && accessToken.value) return true
-    if (accessToken.value) {
+    // the server rendered with the shared cookie; this tab may be impersonating someone else
+    if (impersonationToken.value && user.value?.impersonatedBy == null) {
+      try {
+        await fetchMe()
+        return true
+      } catch {
+        endImpersonation()
+      }
+    }
+    if (user.value && token.value) return true
+    if (token.value) {
       try {
         await fetchMe()
         return true
@@ -153,6 +182,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
+    if (impersonationToken.value) {
+      endImpersonation()
+      await navigateTo('/', { external: true }) // reload as yourself
+      return
+    }
     try {
       await nuxtApp.$api('/auth/logout', { method: 'POST' })
     } finally {
@@ -162,8 +196,24 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   return {
-    accessToken, user, mfaToken, verifyMfa, isAuthenticated, isSuperAdmin, displayName, can,
+    accessToken, token, isImpersonating, endImpersonation, user, mfaToken, verifyMfa, isAuthenticated, isSuperAdmin, displayName, can,
     setSession, clearSession, login, register, verifyEmail, resendVerification, requestOtp, verifyOtp,
     forgotPassword, resetPassword, exchangeOAuth2Code, exchangeImpersonationCode, startSocialLogin, refresh, fetchMe, ensureSession, updateProfile, changePassword, logout,
   }
 })
+
+/** Per-tab storage; unavailable storage (private mode, blocked) simply means no persistence across reloads. */
+function readTab(key: string): string | null {
+  try {
+    return sessionStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function writeTab(key: string, value: string | null) {
+  try {
+    if (value) sessionStorage.setItem(key, value)
+    else sessionStorage.removeItem(key)
+  } catch { /* ignore */ }
+}
