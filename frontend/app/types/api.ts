@@ -137,3 +137,97 @@ export interface Problem {
   /** Same value as the X-Request-Id header and the server logs. */
   requestId?: string
 }
+
+// ---------------------------------------------------------------- organisation (com.polygis.org)
+
+/** A numbered function (Director 900, Chief 100…). `labels` holds the name per locale code. */
+export interface RankDto {
+  id: string
+  key: string
+  level: number
+  labels: Record<string, string>
+  aliases: string[]
+  supervises: boolean
+}
+
+export interface OrgMemberDto {
+  userId: string
+  email: string
+  name: string
+  rankId: string
+  level: number
+}
+
+/** One unit of the organigram. `leadLevel` is the caller's level over it, null when they don't lead it. */
+export interface ChartNode {
+  id: string
+  parentId: string | null
+  name: string
+  sortOrder: number
+  members: OrgMemberDto[]
+  leadLevel: number | null
+  children: ChartNode[]
+}
+
+export interface PersonDto {
+  id: string
+  email: string
+  name: string
+}
+
+export interface SubordinateDto {
+  id: string
+  email: string
+  name: string
+  status: UserStatus
+  lastLoginAt: string | null
+  placements: { unitId: string, unitName: string, rankId: string, level: number }[]
+}
+
+// ---------------------------------------------------------------- access model (com.polygis.access)
+
+export type SubjectKind = 'USER' | 'UNIT' | 'GROUP'
+
+export interface SubjectDto {
+  kind: SubjectKind
+  id: string
+  name: string
+  /** e-mail for people, group kind for groups */
+  detail: string | null
+}
+
+export interface AccessDto {
+  type: string
+  id: string
+  /** action -> allowed, e.g. { read: true, write: false, delete: false, share: false } */
+  can: Record<string, boolean>
+  relationNames: string[]
+  ownerRelation: string
+  relations: { relation: string, subject: SubjectDto }[]
+}
+
+export type AccessScope = 'VISIBLE' | 'MINE' | 'TEAM' | 'ALL'
+
+export interface ProjectDto {
+  id: string
+  name: string
+  description: string | null
+  owners: SubjectDto[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface GroupMemberDto {
+  userId: string
+  email: string
+  name: string
+  role: 'admin' | 'member'
+}
+
+export interface GroupDto {
+  id: string
+  kind: string
+  name: string
+  members: GroupMemberDto[]
+  canManage: boolean
+}

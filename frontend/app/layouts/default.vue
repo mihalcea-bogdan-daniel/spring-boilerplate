@@ -14,6 +14,10 @@ watch(() => route.fullPath, () => { sidebarOpen.value = false })
 const menu = computed<MenuItem[]>(() => {
   const items: MenuItem[] = [
     { label: t('layout.dashboard'), icon: 'pi pi-home', route: '/' },
+    { label: t('layout.organization'), icon: 'pi pi-sitemap', route: '/organization', visible: auth.can('org:read') },
+    { label: t('layout.team'), icon: 'pi pi-users', route: '/team', visible: auth.can('org:read') },
+    { label: t('layout.projects'), icon: 'pi pi-folder', route: '/projects', visible: auth.can('project:read') },
+    { label: t('layout.groups'), icon: 'pi pi-th-large', route: '/groups', visible: auth.can('org:read') },
   ]
   const admin: MenuItem[] = [
     { label: t('layout.users'), icon: 'pi pi-users', route: '/admin/users', visible: auth.can('user:read') },
@@ -21,6 +25,7 @@ const menu = computed<MenuItem[]>(() => {
     { label: t('layout.settings'), icon: 'pi pi-cog', route: '/admin/settings', visible: auth.can('settings:read') },
     { label: t('layout.apiKeys'), icon: 'pi pi-key', route: '/admin/api-keys', visible: auth.can('apikey:manage') },
     { label: t('layout.audit'), icon: 'pi pi-history', route: '/admin/audit', visible: auth.can('audit:read') },
+    { label: t('layout.ranks'), icon: 'pi pi-sort-amount-down', route: '/admin/ranks', visible: auth.can('org:manage') },
   ]
   if (admin.some(i => i.visible)) items.push({ label: t('layout.administration'), items: admin })
   if (auth.isSuperAdmin) {
