@@ -290,5 +290,9 @@
     "signOutFailed": "Could not sign out other sessions",
     "unknownDevice": "Unknown device",
     "browserOn": "{browser} on {os}"
+  },
+  "workspace": {
+    "missingTitle": "No workspace here",
+    "missingBody": "There is no workspace at {host}. Ask your administrator for the right address, or for an invitation."
   }
 }

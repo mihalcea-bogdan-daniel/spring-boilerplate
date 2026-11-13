@@ -290,5 +290,9 @@
     "signOutFailed": "Nu am putut închide celelalte sesiuni",
     "unknownDevice": "Dispozitiv necunoscut",
     "browserOn": "{browser} pe {os}"
+  },
+  "workspace": {
+    "missingTitle": "Niciun spațiu de lucru aici",
+    "missingBody": "Nu există niciun spațiu de lucru la {host}. Cere administratorului adresa corectă sau o invitație."
   }
 }

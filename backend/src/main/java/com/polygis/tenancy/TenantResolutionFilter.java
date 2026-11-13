@@ -59,7 +59,7 @@ public class TenantResolutionFilter extends OncePerRequestFilter {
                 MDC.put(MDC_TENANT, tenant.get().slug());
             } else if (!isTenantOptional(request)) {
                 log.debug("No tenant for host {}", request.getServerName());
-                reject(response, HttpStatus.NOT_FOUND, "tenant_not_found", "Unknown tenant");
+                reject(response, HttpStatus.NOT_FOUND, "tenant_not_found", "No workspace at " + request.getServerName());
                 return;
             }
             chain.doFilter(request, response);
