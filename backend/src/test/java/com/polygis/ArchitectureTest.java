@@ -42,6 +42,12 @@ class ArchitectureTest {
             .because("tenant-scoped modules must not reach into super-admin functionality");
 
     @ArchTest
+    static final ArchRule ownershipGoesThroughTheAccessPolicy = noClasses().that().resideOutsideOfPackage("..access..")
+            .should().dependOnClassesThat().areAssignableTo(com.polygis.access.ResourceRelationRepository.class)
+            .orShould().dependOnClassesThat().areAssignableTo(com.polygis.access.TupleRelationSource.class)
+            .because("modules ask AccessPolicy who may do what; they never read or write relations themselves");
+
+    @ArchTest
     static final ArchRule controllersLiveInFeaturePackagesNotConfig = classes().that()
             .areAnnotatedWith(RestController.class).should().resideOutsideOfPackage("..config..");
 
