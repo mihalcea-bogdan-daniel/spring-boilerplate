@@ -5,6 +5,7 @@ import type { PageResponse, RoleDto, UserDto, UserStatus } from '~/types/api'
 definePageMeta({ permission: 'user:read' })
 
 const auth = useAuthStore()
+const { t, d } = useI18n()
 const confirm = useConfirm()
 const { request, pending: saving, fieldErrors: errors } = useRequest()
 
@@ -30,7 +31,7 @@ function onSort(e: DataTableSortEvent) {
 }
 
 const statusSeverity = (s: UserStatus) => ({ ACTIVE: 'success', PENDING: 'warn', DISABLED: 'danger' }[s])
-const statuses: UserStatus[] = ['ACTIVE', 'PENDING', 'DISABLED']
+const statuses = computed(() => (['ACTIVE', 'PENDING', 'DISABLED'] as UserStatus[]).map(s => ({ label: t(`status.${s}`), value: s })))
 
 // ---------------------------------------------------------------- create / edit dialog
 interface UserForm { id?: string, email: string, firstName: string, lastName: string, password: string, status: UserStatus, roles: string[] }
@@ -53,14 +54,14 @@ async function save() {
     ? await request(`/admin/users/${form.id}`, {
         method: 'PUT',
         body: { firstName: form.firstName, lastName: form.lastName, status: form.status, roles: form.roles },
-        success: 'User saved',
-        error: 'Could not save the user',
+        success: t('users.saved'),
+        error: t('users.saveFailed'),
       })
     : await request('/admin/users', {
         method: 'POST',
         body: { email: form.email, firstName: form.firstName, lastName: form.lastName, password: form.password || null, roles: form.roles },
-        success: 'User created',
-        error: 'Could not create the user',
+        success: t('users.created'),
+        error: t('users.createFailed'),
       })
   if (!res.ok) return
   dialog.value = false
@@ -68,7 +69,7 @@ async function save() {
 }
 
 async function resendInvite(u: UserDto) {
-  await request(`/admin/users/${u.id}/invite`, { method: 'POST', success: `Invitation sent to ${u.email}` })
+  await request(`/admin/users/${u.id}/invite`, { method: 'POST', success: t('users.inviteSent', { email: u.email }) })
 }
 
 // ---------------------------------------------------------------- super-admin: sign in as user
@@ -82,13 +83,13 @@ async function impersonate(u: UserDto) {
 
 function remove(u: UserDto) {
   confirm.require({
-    message: `Delete ${u.email}? This cannot be undone.`,
-    header: 'Delete user',
+    message: t('users.deleteConfirm', { email: u.email }),
+    header: t('users.deleteHeader'),
     icon: 'pi pi-exclamation-triangle',
-    acceptProps: { label: 'Delete', severity: 'danger' },
-    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    acceptProps: { label: t('common.delete'), severity: 'danger' },
+    rejectProps: { label: t('common.cancel'), severity: 'secondary', outlined: true },
     accept: async () => {
-      const res = await request(`/admin/users/${u.id}`, { method: 'DELETE', success: 'User deleted' })
+      const res = await request(`/admin/users/${u.id}`, { method: 'DELETE', success: t('users.deleted') })
       if (res.ok) await refresh()
     },
   })
@@ -98,17 +99,17 @@ function remove(u: UserDto) {
 <template>
   <div class="stack">
     <div class="row-between">
-      <h1 class="page-title">Users</h1>
+      <h1 class="page-title">{{ t('users.title') }}</h1>
       <div class="row">
         <IconField>
           <InputIcon class="pi pi-search" />
-          <InputText v-model="search" placeholder="Search users" />
+          <InputText v-model="search" :placeholder="t('users.search')" />
         </IconField>
-        <Button v-if="auth.can('user:write')" label="New user" icon="pi pi-plus" @click="openCreate" />
+        <Button v-if="auth.can('user:write')" :label="t('users.new')" icon="pi pi-plus" @click="openCreate" />
       </div>
     </div>
 
-    <LoadError :error="error" what="users" @retry="refresh()" />
+    <LoadError :error="error" :what="t('users.what')" @retry="refresh()" />
     <DataTable
       v-if="!error"
       :value="data?.content ?? []"
@@ -124,69 +125,69 @@ function remove(u: UserDto) {
       @page="onPage"
       @sort="onSort"
     >
-      <template #empty>No users found.</template>
-      <Column field="email" header="E-mail" sortable />
-      <Column header="Name">
+      <template #empty>{{ t('users.empty') }}</template>
+      <Column field="email" :header="t('common.email')" sortable />
+      <Column :header="t('common.name')">
         <template #body="{ data: u }">{{ [u.firstName, u.lastName].filter(Boolean).join(' ') || '—' }}</template>
       </Column>
-      <Column field="status" header="Status" sortable>
-        <template #body="{ data: u }"><Tag :value="u.status" :severity="statusSeverity(u.status)" /></template>
+      <Column field="status" :header="t('common.status')" sortable>
+        <template #body="{ data: u }"><Tag :value="t(`status.${u.status}`)" :severity="statusSeverity(u.status)" /></template>
       </Column>
-      <Column header="Roles">
+      <Column :header="t('common.roles')">
         <template #body="{ data: u }">
           <div class="row" style="flex-wrap: wrap; gap: .25rem"><Tag v-for="r in u.roles" :key="r" :value="r" severity="secondary" /></div>
         </template>
       </Column>
-      <Column field="lastLoginAt" header="Last login" sortable>
-        <template #body="{ data: u }">{{ u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '—' }}</template>
+      <Column field="lastLoginAt" :header="t('users.lastLogin')" sortable>
+        <template #body="{ data: u }">{{ u.lastLoginAt ? d(u.lastLoginAt, 'datetime') : '—' }}</template>
       </Column>
       <Column v-if="auth.can('user:write')" header="" style="width: 13rem; text-align: right">
         <template #body="{ data: u }">
           <Button
-v-if="canImpersonate && u.status === 'ACTIVE'" v-tooltip.top="'Sign in as this user'" icon="pi pi-user-edit"
-                  text rounded aria-label="Sign in as this user" @click="impersonate(u)" />
+v-if="canImpersonate && u.status === 'ACTIVE'" v-tooltip.top="t('users.impersonate')" icon="pi pi-user-edit"
+                  text rounded :aria-label="t('users.impersonate')" @click="impersonate(u)" />
           <Button
-v-if="u.status === 'PENDING'" v-tooltip.top="'Resend invitation'" icon="pi pi-send" text rounded
-                  aria-label="Resend invitation" @click="resendInvite(u)" />
-          <Button icon="pi pi-pencil" text rounded aria-label="Edit" @click="openEdit(u)" />
-          <Button icon="pi pi-trash" text rounded severity="danger" aria-label="Delete" @click="remove(u)" />
+v-if="u.status === 'PENDING'" v-tooltip.top="t('users.resendInvite')" icon="pi pi-send" text rounded
+                  :aria-label="t('users.resendInvite')" @click="resendInvite(u)" />
+          <Button icon="pi pi-pencil" text rounded :aria-label="t('common.edit')" @click="openEdit(u)" />
+          <Button icon="pi pi-trash" text rounded severity="danger" :aria-label="t('common.delete')" @click="remove(u)" />
         </template>
       </Column>
     </DataTable>
 
-    <Dialog v-model:visible="dialog" :header="form.id ? 'Edit user' : 'New user'" modal :style="{ width: '32rem' }">
+    <Dialog v-model:visible="dialog" :header="form.id ? t('users.edit') : t('users.new')" modal :style="{ width: '32rem' }">
       <form class="stack" @submit.prevent="save">
         <div class="field">
-          <label for="u-email">E-mail</label>
+          <label for="u-email">{{ t('common.email') }}</label>
           <InputText id="u-email" v-model="form.email" type="email" :disabled="!!form.id" :invalid="!!errors.email" required fluid />
           <small v-if="errors.email" class="error">{{ errors.email }}</small>
         </div>
         <div class="grid-2">
           <div class="field">
-            <label for="u-fn">First name</label>
+            <label for="u-fn">{{ t('common.firstName') }}</label>
             <InputText id="u-fn" v-model="form.firstName" fluid />
           </div>
           <div class="field">
-            <label for="u-ln">Last name</label>
+            <label for="u-ln">{{ t('common.lastName') }}</label>
             <InputText id="u-ln" v-model="form.lastName" fluid />
           </div>
         </div>
         <div v-if="!form.id" class="field">
-          <label for="u-pw">Initial password <span class="muted">(optional — leave empty to e-mail an invitation)</span></label>
+          <label for="u-pw">{{ t('users.initialPassword') }} <span class="muted">{{ t('users.initialPasswordHint') }}</span></label>
           <Password id="u-pw" v-model="form.password" toggle-mask :invalid="!!errors.password" fluid />
           <small v-if="errors.password" class="error">{{ errors.password }}</small>
         </div>
         <div v-else class="field">
-          <label for="u-status">Status</label>
-          <Select id="u-status" v-model="form.status" :options="statuses" fluid />
+          <label for="u-status">{{ t('common.status') }}</label>
+          <Select id="u-status" v-model="form.status" :options="statuses" option-label="label" option-value="value" fluid />
         </div>
         <div class="field">
-          <label for="u-roles">Roles</label>
+          <label for="u-roles">{{ t('common.roles') }}</label>
           <MultiSelect id="u-roles" v-model="form.roles" :options="roles ?? []" option-label="name" option-value="name" display="chip" fluid />
         </div>
         <div class="row" style="justify-content: flex-end">
-          <Button type="button" label="Cancel" severity="secondary" text @click="dialog = false" />
-          <Button type="submit" label="Save" icon="pi pi-check" :loading="saving" />
+          <Button type="button" :label="t('common.cancel')" severity="secondary" text @click="dialog = false" />
+          <Button type="submit" :label="t('common.save')" icon="pi pi-check" :loading="saving" />
         </div>
       </form>
     </Dialog>

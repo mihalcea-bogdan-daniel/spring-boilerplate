@@ -2,6 +2,8 @@
 /** Landing page after Spring's OAuth2 success handler: /auth/callback?code=...&redirect=/... */
 definePageMeta({ layout: 'auth', public: true })
 
+const { t } = useI18n()
+
 const auth = useAuthStore()
 const route = useRoute()
 const error = ref<string | null>(typeof route.query.error === 'string' ? route.query.error : null)
@@ -40,11 +42,11 @@ onMounted(async () => {
     <template #content>
       <div v-if="!error" class="stack" style="align-items: center">
         <ProgressSpinner style="width: 3rem; height: 3rem" />
-        <p>Completing sign-in…</p>
+        <p>{{ t('auth.completing') }}</p>
       </div>
       <div v-else class="stack">
-        <Message severity="error" :closable="false">Sign-in failed: {{ error }}</Message>
-        <Button as="router-link" to="/auth/login" label="Back to sign in" fluid />
+        <Message severity="error" :closable="false">{{ t('auth.failed', { error }) }}</Message>
+        <Button as="router-link" to="/auth/login" :label="t('auth.backToSignIn')" fluid />
       </div>
     </template>
   </Card>

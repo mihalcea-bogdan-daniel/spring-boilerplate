@@ -167,7 +167,7 @@
       <div class="chips">
         <span class="chip">Spring Boot 3.5 · Java 17+</span><span class="chip">PostgreSQL 16</span>
         <span class="chip">Nuxt 4 · TypeScript</span><span class="chip">PrimeVue 4</span>
-        <span class="chip">Gradle</span><span class="chip">Installable PWA</span>
+        <span class="chip">Gradle</span><span class="chip">Installable PWA</span><span class="chip">English · Română</span>
       </div>
     </div>
 
@@ -294,10 +294,11 @@ docs/                    this site</pre></div>
         <li><strong>Migration</strong> in <code>backend/src/main/resources/db/migration/tenant/</code>: the table, plus the new permissions (<code>project:read</code>, <code>project:write</code>).</li>
         <li><strong>Entity, repository, service, controller</strong> under <code>com.polygis.&lt;module&gt;</code>; guard endpoints with <code>@PreAuthorize("hasAuthority('project:read')")</code>.</li>
         <li><strong>Integration test</strong> extending <code>IntegrationTestBase</code> (embedded PostgreSQL; no Docker needed).</li>
-        <li><strong>Page</strong> in <code>frontend/app/pages/admin/</code>, following <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/docs/adding-a-page.md">the page recipe</a>: <code>useApi()</code> + <code>&lt;LoadError&gt;</code> to show data, <code>useRequest()</code> for buttons, <code>definePageMeta({ permission })</code>.</li>
+        <li><strong>Texts</strong> in <code>frontend/i18n/locales/en.json</code> and the same keys, translated, in every other locale file. Pages never contain literal text; lint fails if they do (<a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/docs/i18n.md">i18n guide</a>).</li>
+        <li><strong>Page</strong> in <code>frontend/app/pages/admin/</code>, following <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/docs/adding-a-page.md">the page recipe</a>: <code>useApi()</code> + <code>&lt;LoadError&gt;</code> to show data, <code>useRequest()</code> for buttons, <code>t('…')</code> for every text, <code>definePageMeta({ permission })</code>.</li>
         <li><strong>Menu entry</strong> in <code>frontend/app/layouts/default.vue</code>.</li>
       </ol>
-      <div class="note">Coding agents: read <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/AGENTS.md"><code>frontend/AGENTS.md</code></a> first. It lists the components to use, how errors become toasts, and the files not to touch.</div>
+      <div class="note">Coding agents: read <a href="https://github.com/mihalcea-bogdan-daniel/spring-boilerplate/blob/main/frontend/AGENTS.md"><code>frontend/AGENTS.md</code></a> first. It lists the components to use, how errors become toasts, the i18n rule, and the files not to touch.</div>
       <h3>Keep API types in sync</h3>
       <div class="code"><pre>cd backend && ./gradlew test        <span class="c"># writes build/openapi.json</span>
 cd ../frontend && npm run gen:api   <span class="c"># regenerates app/types/api.generated.ts</span></pre></div>
@@ -349,8 +350,8 @@ cd ../frontend && npm run lint && npm run typecheck && npm test && npm run build
         <p>Safari and some tools don't resolve <code>*.localhost</code>. Use Chrome, Edge or Firefox, or add a line per tenant to <code>/etc/hosts</code>, e.g. <code>127.0.0.1 acme.localhost admin.localhost</code>.</p></details>
       <details><summary>Backend refuses to start: "Unsafe configuration for profiles …"</summary>
         <p>Outside the <code>dev</code>/<code>test</code> profiles it rejects the dev JWT secret, the default super-admin password and the tenant header fallback. Set real values, or run locally with <code>./gradlew bootRun</code> (which uses <code>dev</code>).</p></details>
-      <details><summary><code>404 Unknown tenant</code></summary>
-        <p>The host doesn't match a tenant slug, custom domain or the platform domain. Check <code>APP_BASE_DOMAIN</code>, and that your proxy forwards the original <code>Host</code>.</p></details>
+      <details><summary>"No workspace here" / <code>404 tenant_not_found</code></summary>
+        <p>No tenant has this host as its slug, custom domain or the platform domain. Sign-up only adds users to an existing workspace, so create it first: sign in at <code>admin.localhost</code> and use <em>Platform → Tenants → Provision tenant</em>, or set <code>APP_SEED=true</code> in <code>.env</code> (Docker) or run <code>./gradlew bootRun --args='--app.seed=true'</code> for the demo tenants <code>acme</code> and <code>globex</code>. If the tenant does exist, check <code>APP_BASE_DOMAIN</code> and that your proxy forwards the original <code>Host</code>.</p></details>
       <details><summary>Port 5432 is already in use</summary>
         <p>A local PostgreSQL is running. Stop it, or point the backend at it with <code>DB_URL</code>, <code>DB_USER</code> and <code>DB_PASSWORD</code>.</p></details>
       <details><summary>No e-mail arrives</summary>

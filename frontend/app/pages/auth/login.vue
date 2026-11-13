@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'auth', public: true })
 
+const { t } = useI18n()
+
 const auth = useAuthStore()
 const route = useRoute()
 const { branding } = useBranding()
@@ -50,34 +52,34 @@ const providerIcon = (p: string) => ({ google: 'pi pi-google', github: 'pi pi-gi
 
 <template>
   <Card>
-    <template #title>Sign in</template>
+    <template #title>{{ t('auth.signIn') }}</template>
     <template #content>
       <form class="stack" @submit.prevent="submit">
         <Message v-if="route.query.error" severity="error" :closable="false">
-          Social sign-in failed ({{ route.query.error }}).
+          {{ t('auth.socialFailed', { error: route.query.error }) }}
         </Message>
         <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
 
         <div class="field">
-          <label for="email">E-mail</label>
+          <label for="email">{{ t('common.email') }}</label>
           <InputText id="email" v-model="form.email" type="email" autocomplete="username" required fluid />
         </div>
         <div class="field">
           <div class="row-between">
-            <label for="password">Password</label>
-            <NuxtLink to="/auth/forgot-password" class="muted">Forgot?</NuxtLink>
+            <label for="password">{{ t('common.password') }}</label>
+            <NuxtLink to="/auth/forgot-password" class="muted">{{ t('auth.forgot') }}</NuxtLink>
           </div>
           <Password
 id="password" v-model="form.password" :feedback="false" toggle-mask
                     autocomplete="current-password" required fluid />
         </div>
-        <Button type="submit" label="Sign in" icon="pi pi-sign-in" :loading="loading" fluid />
+        <Button type="submit" :label="t('auth.signIn')" icon="pi pi-sign-in" :loading="loading" fluid />
         <Button
-v-if="passkeys.supported.value" type="button" label="Sign in with a passkey" icon="pi pi-key"
+v-if="passkeys.supported.value" type="button" :label="t('auth.passkey')" icon="pi pi-key"
                 severity="secondary" :loading="passkeyLoading" fluid @click="passkeySignIn" />
-        <Button as="router-link" to="/auth/otp" label="E-mail me a sign-in code" severity="secondary" outlined fluid />
+        <Button as="router-link" to="/auth/otp" :label="t('auth.emailCode')" severity="secondary" outlined fluid />
 
-        <Divider v-if="providers.length" align="center"><span class="muted">or continue with</span></Divider>
+        <Divider v-if="providers.length" align="center"><span class="muted">{{ t('auth.orContinue') }}</span></Divider>
         <div class="grid-2">
           <Button
 v-for="p in providers" :key="p" :icon="providerIcon(p)" :label="p" severity="contrast" outlined
@@ -86,7 +88,7 @@ v-for="p in providers" :key="p" :icon="providerIcon(p)" :label="p" severity="con
       </form>
     </template>
     <template #footer>
-      <p v-if="branding.allowSelfRegistration" class="muted">No account? <NuxtLink to="/auth/register">Create one</NuxtLink></p>
+      <p v-if="branding.allowSelfRegistration" class="muted">{{ t('auth.noAccount') }} <NuxtLink to="/auth/register">{{ t('auth.createOne') }}</NuxtLink></p>
     </template>
   </Card>
 </template>

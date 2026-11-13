@@ -19,6 +19,8 @@ const DEFAULTS: Branding = {
 export function useBranding() {
   const branding = useState<Branding>('branding', () => ({ ...DEFAULTS }))
   const loaded = useState('branding-loaded', () => false)
+  /** True when this host has no workspace (the API answered tenant_not_found). Auth pages show a notice. */
+  const missing = useState('tenant-missing', () => false)
   const nuxtApp = useNuxtApp()
   const appName = useRuntimeConfig().public.appName
 
@@ -29,8 +31,11 @@ export function useBranding() {
     if (loaded.value && !force) return
     try {
       branding.value = { ...DEFAULTS, ...(await nuxtApp.$api<Branding>('/auth/branding')) }
-    } catch {
-      branding.value = { ...DEFAULTS } // API down or unknown tenant: fall back to the product defaults
+      missing.value = false
+    } catch (e) {
+      branding.value = { ...DEFAULTS } // fall back to the product defaults
+      // only a definite "no such workspace"; an unreachable API must not hide the sign-in form
+      missing.value = problemOf(e).code === 'tenant_not_found'
     }
     loaded.value = true
     applyPalette()
@@ -47,5 +52,5 @@ export function useBranding() {
     updatePrimaryPalette(Object.fromEntries(shades.map(s => [s, `{${c}.${s}}`])))
   }
 
-  return { branding, name, load, applyPalette }
+  return { branding, name, missing, load, applyPalette }
 }

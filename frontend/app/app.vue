@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { isDark } = useTheme()
+useLocaleSync()
 useHead({ htmlAttrs: { class: computed(() => (isDark.value ? 'app-dark' : '')) } })
 </script>
 

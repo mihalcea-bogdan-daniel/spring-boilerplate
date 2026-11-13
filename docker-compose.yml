@@ -1,5 +1,7 @@
 # Full stack behind nginx. Open http://admin.localhost (super-admin) or http://<slug>.localhost (tenants).
 # *.localhost resolves to 127.0.0.1 in Chrome/Firefox/Edge; for other tools add hosts entries or use lvh.me.
+# A tenant URL only works once that tenant exists: provision it from admin.localhost, or set APP_SEED=true in
+# .env for the demo tenants acme and globex.
 services:
   postgres:
     image: postgres:16-alpine

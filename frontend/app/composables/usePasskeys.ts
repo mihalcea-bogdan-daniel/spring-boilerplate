@@ -14,6 +14,7 @@ import type { PasskeyDto, TokenResponse } from '~/types/api'
 export function usePasskeys() {
   const nuxtApp = useNuxtApp()
   const auth = useAuthStore()
+  const { t } = useI18n()
   const supported = ref(false)
   onMounted(() => { supported.value = browserSupportsWebAuthn() })
 
@@ -33,8 +34,8 @@ export function usePasskeys() {
   /** Readable message for both API problems and the browser's WebAuthn errors. */
   function messageOf(error: unknown): string {
     const name = (error as { name?: string } | null)?.name
-    if (name === 'NotAllowedError' || name === 'AbortError') return 'The passkey prompt was cancelled or timed out.'
-    if (name === 'InvalidStateError') return 'This device already has a passkey for your account.'
+    if (name === 'NotAllowedError' || name === 'AbortError') return t('auth.passkeyCancelled')
+    if (name === 'InvalidStateError') return t('auth.passkeyExists')
     return problemOf(error).detail
   }
 

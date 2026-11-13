@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'auth', public: true })
 
+const { t } = useI18n()
+
 const auth = useAuthStore()
 const step = ref<'email' | 'code'>('email')
 const route = useRoute()
@@ -39,27 +41,27 @@ async function verify() {
 
 <template>
   <Card>
-    <template #title>Sign in with a code</template>
+    <template #title>{{ t('auth.codeTitle') }}</template>
     <template #content>
       <Message v-if="error" severity="error" :closable="false" class="mb-3">{{ error }}</Message>
       <form v-if="step === 'email'" class="stack" @submit.prevent="requestCode">
         <div class="field">
-          <label for="email">E-mail</label>
+          <label for="email">{{ t('common.email') }}</label>
           <InputText id="email" v-model="email" type="email" autocomplete="email" required fluid />
         </div>
-        <Button type="submit" label="Send code" icon="pi pi-envelope" :loading="loading" fluid />
+        <Button type="submit" :label="t('auth.sendCode')" icon="pi pi-envelope" :loading="loading" fluid />
       </form>
       <form v-else class="stack" @submit.prevent="verify">
-        <p class="muted">If {{ email }} has an account, a code is on its way.</p>
+        <p class="muted">{{ t('auth.codeSent', { email }) }}</p>
         <div class="row" style="justify-content: center">
           <InputOtp v-model="code" :length="6" integer-only />
         </div>
-        <Button type="submit" label="Sign in" :loading="loading" :disabled="code.length !== 6" fluid />
-        <Button type="button" label="Use another e-mail" link @click="step = 'email'; code = ''" />
+        <Button type="submit" :label="t('auth.signIn')" :loading="loading" :disabled="code.length !== 6" fluid />
+        <Button type="button" :label="t('auth.otherEmail')" link @click="step = 'email'; code = ''" />
       </form>
     </template>
     <template #footer>
-      <NuxtLink to="/auth/login" class="muted">Back to password sign-in</NuxtLink>
+      <NuxtLink to="/auth/login" class="muted">{{ t('auth.backToPassword') }}</NuxtLink>
     </template>
   </Card>
 </template>

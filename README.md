@@ -179,7 +179,8 @@ cd backend && ./gradlew bootRun --args='--app.seed=true'
 ```
 
 * Super-admin: http://admin.localhost:3000 — `superadmin@admin.localhost` / `ChangeMe!123` (dev profile defaults)
-* Provision a tenant `acme` from *Platform → Tenants*, then open http://acme.localhost:3000
+* Provision a tenant `acme` from *Platform → Tenants*, then open http://acme.localhost:3000. Sign-up adds a user
+  to an existing workspace; a host with no tenant shows "No workspace here".
 * Read e-mails (OTP codes, invites) at http://localhost:8025
 * Swagger UI: http://localhost:8080/api/docs/ui (with header `X-Tenant-ID: platform` thanks to the dev fallback)
 
@@ -193,7 +194,9 @@ Full stack behind nginx:
 cp .env.example .env && docker compose up --build
 ```
 
-then open http://admin.localhost and http://acme.localhost.
+then open http://admin.localhost. `acme.localhost` works once the tenant exists: provision it from
+*Platform → Tenants*, or set `APP_SEED=true` in `.env` and restart the backend to get the demo tenants
+`acme` and `globex`.
 
 ## Keeping frontend types in sync with the API
 

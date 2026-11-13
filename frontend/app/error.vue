@@ -2,6 +2,7 @@
 import type { NuxtError } from '#app'
 
 const props = defineProps<{ error: NuxtError }>()
+const { t } = useI18n()
 </script>
 
 <template>
@@ -12,7 +13,7 @@ const props = defineProps<{ error: NuxtError }>()
         <p>{{ props.error.statusMessage || props.error.message }}</p>
       </template>
       <template #footer>
-        <Button label="Back to dashboard" icon="pi pi-home" @click="clearError({ redirect: '/' })" />
+        <Button :label="t('error.backHome')" icon="pi pi-home" @click="clearError({ redirect: '/' })" />
       </template>
     </Card>
   </div>
