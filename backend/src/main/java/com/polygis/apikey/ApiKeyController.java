@@ -49,13 +49,15 @@ public class ApiKeyController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public CreatedApiKeyDto create(@Valid @RequestBody CreateApiKeyRequest req, Authentication authentication) {
+        com.polygis.auth.Impersonation.reject(authentication);
         var created = service.create(req.name(), req.permissions(), authentication);
         return new CreatedApiKeyDto(ApiKeyDto.from(created.key()), created.rawKey());
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void revoke(@PathVariable UUID id) {
+    public void revoke(@PathVariable UUID id, Authentication authentication) {
+        com.polygis.auth.Impersonation.reject(authentication);
         service.revoke(id);
     }
 }

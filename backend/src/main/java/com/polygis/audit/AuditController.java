@@ -22,7 +22,7 @@ public class AuditController {
 
     public record AuditEventDto(UUID id, Instant occurredAt, String actorEmail, String actorTenant, String action,
                                 String targetType, String targetId, String details, String ipAddress) {
-        static AuditEventDto from(AuditEvent e) {
+        public static AuditEventDto from(AuditEvent e) {
             return new AuditEventDto(e.getId(), e.getOccurredAt(), e.getActorEmail(), e.getActorTenant(),
                     e.getAction(), e.getTargetType(), e.getTargetId(), e.getDetails(), e.getIpAddress());
         }

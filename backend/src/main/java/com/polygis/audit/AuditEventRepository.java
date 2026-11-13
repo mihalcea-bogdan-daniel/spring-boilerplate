@@ -18,4 +18,11 @@ public interface AuditEventRepository extends JpaRepository<AuditEvent, UUID> {
                or lower(coalesce(e.targetId, '')) like lower(concat('%', :q, '%'))
             """)
     Page<AuditEvent> search(@Param("q") String q, Pageable pageable);
+
+    /** Activity of a set of people, e.g. the people a supervisor is responsible for. */
+    Page<AuditEvent> findByActorUserIdIn(java.util.Collection<UUID> actorUserIds, Pageable pageable);
+
+    /** Events about one target with one of the given actions, e.g. who signed in as a user. */
+    Page<AuditEvent> findByTargetTypeAndTargetIdAndActionIn(String targetType, String targetId,
+                                                            java.util.Collection<String> actions, Pageable pageable);
 }

@@ -85,20 +85,20 @@ public class AccountController {
     @DeleteMapping("/sessions/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void revokeSession(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        rejectIfImpersonated(jwt);
         accounts.revokeSession(userId(jwt), tenant(jwt), id);
     }
 
     @DeleteMapping("/sessions")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void revokeAllSessions(@AuthenticationPrincipal Jwt jwt) {
+        rejectIfImpersonated(jwt);
         accounts.revokeAllSessions(userId(jwt), tenant(jwt));
     }
 
     /** An operator signed in as the user may look around, but never change the user's credentials. */
     private static void rejectIfImpersonated(Jwt jwt) {
-        if (jwt.getClaimAsString(JwtClaims.ACTOR) != null) {
-            throw ApiException.forbidden("impersonated", "Not allowed in an impersonated session");
-        }
+        com.polygis.auth.Impersonation.reject(jwt);
     }
 
     private static UUID userId(Jwt jwt) {
