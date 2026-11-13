@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import QRCode from 'qrcode'
-import type { PasskeyDto, SessionDto } from '~/types/api'
+import type { AuditEventDto, PageResponse, PasskeyDto, SessionDto } from '~/types/api'
 
 const auth = useAuthStore()
 const { t, d } = useI18n()
@@ -46,6 +46,9 @@ async function savePassword() {
 
 // ---------------------------------------------------------------- active sessions (refresh tokens)
 const { data: sessions, error: sessionsError, refresh: reloadSessions } = useApi<SessionDto[]>('/me/sessions', { server: false })
+
+// ---------------------------------------------------------------- who signed in as me
+const { data: accessLog, error: accessLogError, refresh: reloadAccessLog } = useApi<PageResponse<AuditEventDto>>('/me/access-log', { server: false })
 
 async function revokeSession(s: SessionDto) {
   const res = await request(`/me/sessions/${s.id}`, { method: 'DELETE', success: t('profile.sessionRevoked') })
@@ -289,6 +292,26 @@ id="p-conf" v-model="password.confirm" :feedback="false" toggle-mask
         <div class="row" style="justify-content: flex-end; margin-top: 1rem">
           <Button :label="t('profile.signOutEverywhere')" icon="pi pi-sign-out" severity="danger" outlined @click="signOutEverywhere" />
         </div>
+      </template>
+    </Card>
+
+    <Card>
+      <template #title>{{ t('profile.accessLog') }}</template>
+      <template #subtitle>{{ t('profile.accessLogHint') }}</template>
+      <template #content>
+        <LoadError :error="accessLogError" :what="t('profile.accessLogWhat')" @retry="reloadAccessLog()" />
+        <DataTable v-if="!accessLogError" :value="accessLog?.content ?? []" data-key="id" size="small">
+          <template #empty>{{ t('profile.accessLogEmpty') }}</template>
+          <Column :header="t('audit.when')"><template #body="{ data: e }">{{ d(e.occurredAt, 'datetime') }}</template></Column>
+          <Column :header="t('profile.accessLogWho')">
+            <template #body="{ data: e }">{{ e.details ?? e.actorEmail }}</template>
+          </Column>
+          <Column :header="t('profile.accessLogVia')">
+            <template #body="{ data: e }">
+              <Tag :value="e.action === 'org.impersonation.started' ? t('profile.viaSupervisor') : t('profile.viaPlatform')" severity="secondary" />
+            </template>
+          </Column>
+        </DataTable>
       </template>
     </Card>
   </div>
