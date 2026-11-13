@@ -52,7 +52,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-mail'
 
     // Passkeys (WebAuthn): verification only; ceremonies and storage are ours (stateless, per-tenant schema)
-    implementation 'com.webauthn4j:webauthn4j-core:0.30.3.RELEASE'
+    implementation 'com.webauthn4j:webauthn4j-core:0.32.0.RELEASE'
 
     // Error reporting. Inactive unless SENTRY_DSN is set.
     implementation 'io.sentry:sentry-spring-boot-starter-jakarta:8.61.1'
