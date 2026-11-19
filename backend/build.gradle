@@ -56,7 +56,7 @@ dependencies {
 
     // Error reporting. Inactive unless SENTRY_DSN is set.
     implementation 'io.sentry:sentry-spring-boot-starter-jakarta:8.61.1'
-    implementation 'io.sentry:sentry-logback:8.61.1'
+    implementation 'io.sentry:sentry-logback:8.64.0'
 
     // API docs
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
